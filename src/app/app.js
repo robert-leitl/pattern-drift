@@ -1,180 +1,104 @@
-import computeShader from './shader/compute.wgsl?raw'
+import * as wgh from 'webgpu-utils';
+import { initComposite, addCompositeCommands, resizeComposite } from './composite';
+import { initBlur, addBlurCommands, resizeBlur, getBlurResultTexture } from './blur';
 
-async function start() {
-    if (!navigator.gpu) {
-        throw new Error('this browser does not support WebGPU');
-        return;
+let adapter, device, context, presentationFormat;
+let canvas, pixelRatio, viewportSize;
+
+async function main() {
+  pixelRatio = window.devicePixelRatio;
+  adapter = await navigator.gpu?.requestAdapter();
+  device = await adapter?.requestDevice();
+  if (!device) {
+    fail('need a browser that supports WebGPU');
+    return;
+  }
+  
+  canvas = document.querySelector('canvas');
+
+  context = canvas.getContext('webgpu');
+  presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+  context.configure({
+    device,
+    format: presentationFormat,
+    alphaMode: 'premultiplied',
+  });
+
+  const imgTex = await wgh.createTextureFromImage(device, new URL('../assets/img.jpg', import.meta.url), {
+    mips: false,
+    flipY: true,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
+  });
+  const testTexture = createTestTexture([30, 30]);
+  
+  initBlur(device, testTexture);
+  initComposite(device, presentationFormat, imgTex);
+
+  const observer = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      const width = entry.contentBoxSize[0].inlineSize;
+      const height = entry.contentBoxSize[0].blockSize;
+      resize(width, height);
     }
+  });
+  observer.observe(canvas);
 
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) {
-        throw new Error('this browser supports webgpu but it appears disabled');
-        return;
-    }
-
-    const device = await adapter?.requestDevice();
-    device.lost.then((info) => {
-        console.error(`WebGPU device was lost: ${info.message}`);
-
-        // 'reason' will be 'destroyed' if we intentionally destroy the device.
-        if (info.reason !== 'destroyed') {
-            // try again
-            start();
-        }
-    });
-    
-    console.log(adapter, device);
-
-    await main(device);
+  resize(1, 1);
+  run();
 }
 
-async function main(device) {
-    const canvas = document.querySelector('canvas');
-    const context = canvas.getContext('webgpu');
-    const format = navigator.gpu.getPreferredCanvasFormat();
-    context.configure({
-        device,
-        format
-    });
-
-    const dispatchCount = [2, 2, 2];
-    const workgroupSize = [4, 4, 4];
-    const arrayProd = a => a.reduce((p, v) => p * v);
-    const numThreadsPerWorkgroup = arrayProd(workgroupSize);
-    const numWorkgroups = arrayProd(dispatchCount);
-    const numResults = numWorkgroups * numThreadsPerWorkgroup;
-    console.log(numThreadsPerWorkgroup, numWorkgroups, numResults);
-    const indexShader = `
-        @group(0) @binding(0) var<storage, read_write> workgroupResult: array<vec3u>;
-        @group(0) @binding(1) var<storage, read_write> localResult: array<vec3u>;
-        @group(0) @binding(2) var<storage, read_write> globalResult: array<vec3u>;
-
-        @compute @workgroup_size(${workgroupSize}) fn indexCompute(
-            @builtin(workgroup_id) workgroup_id: vec3<u32>,
-            @builtin(local_invocation_id) local_invocation_id: vec3<u32>,
-            @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
-            @builtin(local_invocation_index) local_invocation_index: u32,
-            @builtin(num_workgroups) num_workgroups: vec3<u32>
-        ) {
-            let workgroup_index = workgroup_id.x + workgroup_id.y * num_workgroups.x + workgroup_id.z * num_workgroups.x * num_workgroups.y;
-            let global_invocation_index = workgroup_index * ${numThreadsPerWorkgroup} + local_invocation_index;
-
-            workgroupResult[global_invocation_index] = workgroup_id;
-            localResult[global_invocation_index] = local_invocation_id;
-            globalResult[global_invocation_index] = global_invocation_id;
-        }
-    `;
-
-    const module = device.createShaderModule({
-        label: 'compute shader module',
-        code: indexShader
-    });
-    const computePipeline = device.createComputePipeline({
-        label: 'compute pipeline',
-        layout: 'auto',
-        compute: {
-            module,
-            entryPoint: 'indexCompute'
-        }
-    });
-    const size = numResults * 4 * 4;
-    let usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC;
-    const workgroupBuffer = device.createBuffer({size, usage});
-    const localBuffer = device.createBuffer({size, usage});
-    const globalBuffer = device.createBuffer({size, usage});
-    usage = GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST;
-    const workgroupReadBuffer = device.createBuffer({size, usage});
-    const localReadBuffer = device.createBuffer({size, usage});
-    const globalReadBuffer = device.createBuffer({size, usage});
-    const bindGroup = device.createBindGroup({
-        label: 'compute work buffer bind group',
-        layout: computePipeline.getBindGroupLayout(0),
-        entries: [
-            { binding: 0, resource: { buffer: workgroupBuffer }},
-            { binding: 1, resource: { buffer: localBuffer }},
-            { binding: 2, resource: { buffer: globalBuffer }}
-        ]
-    });
-
-    const compute = async () => {
-        const encoder = device.createCommandEncoder({ label: 'compute command encoder '});
-
-        const pass = encoder.beginComputePass({ label: 'compute pass' });
-        pass.setPipeline(computePipeline);
-        pass.setBindGroup(0, bindGroup);
-        pass.dispatchWorkgroups(...dispatchCount);
-        pass.end();
-
-        encoder.copyBufferToBuffer(workgroupBuffer, 0, workgroupReadBuffer, 0, size);
-        encoder.copyBufferToBuffer(localBuffer, 0, localReadBuffer, 0, size);
-        encoder.copyBufferToBuffer(globalBuffer, 0, globalReadBuffer, 0, size);
-
-        device.queue.submit([encoder.finish()]);
-
-        await Promise.all([
-            workgroupReadBuffer.mapAsync(GPUMapMode.READ),
-            localReadBuffer.mapAsync(GPUMapMode.READ),
-            globalReadBuffer.mapAsync(GPUMapMode.READ)
-        ]);
-        const workgroup = new Uint32Array(workgroupReadBuffer.getMappedRange());
-        const local = new Uint32Array(localReadBuffer.getMappedRange());
-        const global = new Uint32Array(globalReadBuffer.getMappedRange());
-
-        const get3 = (arr, i) => {
-            const off = i * 4;
-            return `${arr[off]}, ${arr[off + 1]}, ${arr[off + 2]}`;
-        };
-        
-        for (let i = 0; i < numResults; ++i) {
-            if (i % numThreadsPerWorkgroup === 0) {
-                log(`\
----------------------------------------
-global                 local     global   dispatch: ${i / numThreadsPerWorkgroup}
-invoc.    workgroup    invoc.    invoc.
-index     id           id        id
----------------------------------------`);
-            }
-            log(` ${i.toString().padStart(3)}:      ${get3(workgroup, i)}      ${get3(local, i)}   ${get3(global, i)}`)
-        }
-        
-        function log(...args) {
-          console.log(args)
-        }
-
-        workgroupReadBuffer.unmap();
-        localReadBuffer.unmap();
-        globalReadBuffer.unmap();
+function createTestTexture(size) {
+  const w = size[0];
+  const h = size[1];
+  const rgb = new Array(w * h * 4).fill(255);
+  for(let x=0; x<w; x++) {
+    for(let y=0; y<h; y++) {
+      const v = x > w / 3 && x < (2 * w) / 3 && y > h / 3 && y < (2 * h) / 3 ? 0 : 255;
+      rgb[(x + y * w) * 4 + 0] = v;
+      rgb[(x + y * w) * 4 + 1] = v;
+      rgb[(x + y * w) * 4 + 2] = v;
     }
-
-
-    const render = (t) => {
-        const aspect = canvas.width / canvas.height;
-    }
-
-    const observer = new ResizeObserver(entries => {
-        entries.forEach(entry => {
-            const canvas = entry.target;
-            const width = entry.contentBoxSize[0].inlineSize;
-            const height = entry.contentBoxSize[0].blockSize;
-            canvas.width = Math.min(width, device.limits.maxTextureDimension2D);
-            canvas.height = Math.min(height, device.limits.maxTextureDimension2D);
-            // re-render
-            render(0);
-        });
-    });
-    observer.observe(canvas);
-
-    const animate = (t) => {
-        render(t);
-        requestAnimationFrame(t => animate(t));
-    };
-    animate();
-
-    document.body.style.overflow =  'auto ';
-    canvas.style.display = 'none';
-
-    await compute();
+  }
+  const data = new Uint8Array(rgb);
+  const texture = device.createTexture({
+    size: { width: w, height: w },
+    format: "rgba8unorm",
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+  });
+  device.queue.writeTexture({ texture }, data, { bytesPerRow: w * 4 }, { width: w, height: h });
+  return texture;
 }
 
+function resize(width, height) {
+  canvas.width = Math.max(1, Math.min(width, device.limits.maxTextureDimension2D));
+  canvas.height = Math.max(1, Math.min(height, device.limits.maxTextureDimension2D));
+  viewportSize = [canvas.width, canvas.height].map(v => v * pixelRatio);
 
-start();
+  resizeBlur(viewportSize);
+  resizeComposite(viewportSize, getBlurResultTexture());
+}
+
+function run(t = 0) {
+  render();
+  requestAnimationFrame(t => run(t));
+}
+
+function render() {
+  if (canvas.width < 1 || canvas.height < 1) return;
+
+  const cmdEncoder = device.createCommandEncoder();
+
+  addBlurCommands(cmdEncoder);
+  addCompositeCommands(cmdEncoder, context.getCurrentTexture().createView());
+
+  device.queue.submit([cmdEncoder.finish()]);
+}
+
+function fail(msg) {
+  const elem = document.createElement('p');
+  elem.textContent = msg;
+  elem.style.color = 'red';
+  document.body.appendChild(elem);
+}
+
+main();
