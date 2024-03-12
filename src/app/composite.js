@@ -39,7 +39,10 @@ export function initComposite(device, presentationFormat, tex) {
         size: uniforms.arrayBuffer.byteLength,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, // a uniform buffer as a destination to copy to
     });
-    sampler = _device.createSampler({});
+    sampler = _device.createSampler({
+        minFilter: 'linear',
+        magFilter: 'linear'
+    });
     bindGroupParams = _device.createBindGroup({
         layout: bindGroupParamsLayout,
         entries: [

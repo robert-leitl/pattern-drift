@@ -24,7 +24,6 @@ const dispatchSize = [
 
 export function initConvolution(device, tex) {
     _device = device;
-    inTexture = tex;
     const module = _device.createShaderModule({ code: convolutionWGSL });
     const defs = wgh.makeShaderDataDefinitions(convolutionWGSL);
     const pipelineDesc = {
@@ -66,14 +65,15 @@ export function initConvolution(device, tex) {
         ]
     });
 
-    createBindGroups([1, 1]);
+    createBindGroups([1, 1], tex);
 }
 
-function createBindGroups(viewportSize) { 
-    const w = inTexture.width;
-    const h = inTexture.height;
+function createBindGroups(viewportSize, tex) { 
+    inTexture = tex;
+    const w = inTexture.width / 2;
+    const h = inTexture.height / 2;
 
-    blurTextures = blurTextures.map(() => {
+    blurTextures = blurTextures.map((v, ndx) => {
         const texture = _device.createTexture({
             size: { width: w, height: h },
             format: 'rgba8unorm',
@@ -84,7 +84,25 @@ function createBindGroups(viewportSize) {
                 GPUTextureUsage.RENDER_ATTACHMENT,
         });
 
-        _device.queue.writeTexture({ texture }, new Uint8Array(new Array(w * h * 4).fill(255)), { bytesPerRow: w * 4 }, { width: w, height: h });
+        let data;
+        if (ndx === 0) {
+            const rgb = new Array(w * h * 4).fill(0);
+            const bx = [w / 2 - 5, w / 2 + 5];
+            const by = [h / 2 - 5, h / 2 + 5];
+            for(let x=0; x<w; x++) {
+                for(let y=0; y<h; y++) {
+                    const v = x > bx[0] && x < bx[1] && y > by[0] && y < by[1];
+                    rgb[(x + y * w) * 4 + 0] = v ? 0 : 255;
+                    rgb[(x + y * w) * 4 + 1] = v ? 255 : 0;
+                    rgb[(x + y * w) * 4 + 2] = 0;
+                }
+            }
+            data = new Uint8Array(rgb);
+        } else {
+            data = new Uint8Array(new Array(w * h * 4).fill(255));
+        }
+
+        _device.queue.writeTexture({ texture }, data, { bytesPerRow: w * 4 }, { width: w, height: h });
 
         return texture;
     });
@@ -111,8 +129,8 @@ export function getConvolutionResultTexture() {
     return blurTextures[1];
 }
 
-export function resizeConvolution(viewportSize) {
-    createBindGroups(viewportSize);
+export function resizeConvolution(viewportSize, tex) {
+    createBindGroups(viewportSize, tex);
 }
 
 export function addConvolutionCommands(cmdEncoder) {
@@ -126,11 +144,13 @@ export function addConvolutionCommands(cmdEncoder) {
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bindGroupParams);
 
-    pass.setBindGroup(1, bindGroup0);
-    pass.dispatchWorkgroups(...dispatches);
-
-    pass.setBindGroup(1, bindGroup1);
-    pass.dispatchWorkgroups(...dispatches);
+    for(let i = 0; i < 25; i++) {
+        pass.setBindGroup(1, bindGroup0);
+        pass.dispatchWorkgroups(...dispatches);
+    
+        pass.setBindGroup(1, bindGroup1);
+        pass.dispatchWorkgroups(...dispatches);
+    }
   
     pass.end();
 }

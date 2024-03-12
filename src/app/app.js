@@ -4,7 +4,8 @@ import { initBlur, addBlurCommands, resizeBlur, getBlurResultTexture } from './b
 import { addConvolutionCommands, getConvolutionResultTexture, initConvolution, resizeConvolution } from './convolution';
 
 let adapter, device, context, presentationFormat;
-let canvas, pixelRatio, viewportSize;
+let canvas, pixelRatio, viewportSize = [100, 100];
+let inTexture;
 
 async function main() {
   pixelRatio = window.devicePixelRatio;
@@ -30,10 +31,11 @@ async function main() {
     flipY: true,
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
   });
-  const testTexture = createTestTexture([100, 100]);
+  const testTexture = createTestTexture(viewportSize);
+
+  inTexture = testTexture;
   
-  initConvolution(device, testTexture);
-  initBlur(device, testTexture);
+  initConvolution(device, inTexture);
   initComposite(device, presentationFormat, imgTex);
 
   const observer = new ResizeObserver(entries => {
@@ -52,18 +54,20 @@ async function main() {
 function createTestTexture(size) {
   const w = size[0];
   const h = size[1];
-  const rgb = new Array(w * h * 4).fill(255);
+  const rgb = new Array(w * h * 4).fill(0);
+  const bx = [w / 2 - 5, w / 2 + 5];
+  const by = [h / 2 - 5, h / 2 + 5];
   for(let x=0; x<w; x++) {
     for(let y=0; y<h; y++) {
-      const v = x > w / 3 && x < (2 * w) / 3 && y > h / 3 && y < (2 * h) / 3 ? 0 : 255;
-      rgb[(x + y * w) * 4 + 0] = v;
-      rgb[(x + y * w) * 4 + 1] = v;
-      rgb[(x + y * w) * 4 + 2] = v;
+      const v = x > bx[0] && x < bx[1] && y > by[0] && y < by[1];
+      rgb[(x + y * w) * 4 + 0] = v ? 0 : 255;
+      rgb[(x + y * w) * 4 + 1] = v ? 255 : 0;
+      rgb[(x + y * w) * 4 + 2] = 0;
     }
   }
   const data = new Uint8Array(rgb);
   const texture = device.createTexture({
-    size: { width: w, height: w },
+    size: { width: w, height: h },
     format: "rgba8unorm",
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
   });
@@ -76,13 +80,15 @@ function resize(width, height) {
   canvas.height = Math.max(1, Math.min(height, device.limits.maxTextureDimension2D));
   viewportSize = [canvas.width, canvas.height].map(v => v * pixelRatio);
 
-  resizeConvolution(viewportSize);
-  resizeBlur(viewportSize);
+  inTexture = createTestTexture(viewportSize);
+
+  resizeConvolution(viewportSize, inTexture);
   resizeComposite(viewportSize, getConvolutionResultTexture());
 }
 
 function run(t = 0) {
   render();
+
   requestAnimationFrame(t => run(t));
 }
 
@@ -92,7 +98,6 @@ function render() {
   const cmdEncoder = device.createCommandEncoder();
 
   addConvolutionCommands(cmdEncoder);
-  addBlurCommands(cmdEncoder);
   addCompositeCommands(cmdEncoder, context.getCurrentTexture().createView());
 
   device.queue.submit([cmdEncoder.finish()]);

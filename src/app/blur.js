@@ -117,9 +117,9 @@ export function getBlurResultTexture() {
     return blurTextures[0];
 }
 
-export function resizeBlur(viewportSize) {
+export function resizeBlur(viewportSize, tex) {
     size = [...viewportSize];
-    createBindGroups(viewportSize);
+    createBindGroups(viewportSize, tex);
 }
 
 export function addBlurCommands(cmdEncoder) {

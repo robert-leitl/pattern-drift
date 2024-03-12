@@ -42,10 +42,14 @@ fn compute_main(
 
       // subtract the kernel offset to include the border pixels needed
       // for the convolution of the kernel within the dispatch (work) area
-      let sample: vec2u = dispatchOffset + local - kernelOffset;
+      var sample: vec2u = dispatchOffset + local - kernelOffset;
+
+      // clamp the sample to the edges of the input texture
+      sample = clamp(sample, vec2u(1, 1), dims - vec2u(1, 1));
 
       let seed: vec4f = textureLoad(seedTex, sample, 0);
-      cache[local.y][local.x] = textureLoad(inputTex, sample, 0).rgb * seed.rgb;
+      let input: vec4f = textureLoad(inputTex, sample, 0);
+      cache[local.y][local.x] = input.rgb;
     }
   }
 
@@ -55,6 +59,12 @@ fn compute_main(
   let bounds: vec4u = vec4u(
     dispatchOffset,
     min(dims, dispatchOffset + params.dispatchSize)
+  );
+
+  let laplacian: array<f32, 9> = array(
+    0.05, 0.20, 0.05,
+    0.20, -1.0, 0.20,
+    0.05, 0.20, 0.05,
   );
 
   // run through the whole cache area
@@ -67,18 +77,31 @@ fn compute_main(
       // necessary pixels in the cache
       if (all(sample >= bounds.xy) && all(sample < bounds.zw)) {
 
-        // apply kernel
-        var acc = vec3f(0);
-        let k = vec2i(kernelOffset);
-        for (var x = -k.x; x <= k.x; x++) {
-          for (var y = -k.y; y <= k.y; y++) {
-            let i = vec2i(local) + vec2(x, y);
-            acc += cache[i.y][i.x];
+        // convolution with laplacian kernel
+        var lap = vec2f(0);
+        let ks: i32 = i32(params.kernelSize);
+        for (var x = 0; x < ks; x++) {
+          for (var y = 0; y < ks; y++) {
+            let i = vec2i(local) + vec2(x, y) - vec2i(kernelOffset);
+            lap += cache[i.y][i.x].xy * laplacian[y * ks + x];
           }
         }
-        acc /= f32(kernelArea);
 
-        textureStore(outputTex, sample, vec4(acc, 1.0));
+        let dA = 1.;
+        let dB = .2;
+        let feed = .05;
+        let kill = .062;
+
+        let rd0 = cache[local.y][local.x].xy;
+        let A = rd0.x;
+        let B = rd0.y;
+        let reaction = A * B * B;
+        var rd = vec2f(
+          A + (dA * lap.x - reaction + feed * (1. - A)),
+          B + (dB * lap.y + reaction - (kill + feed) * B),
+        );
+
+        textureStore(outputTex, sample, vec4(rd, 0., 1.0));
 
         // debug code
         //textureStore(outputTex, sample, vec4(cache[local.y][local.x], 1.0));
