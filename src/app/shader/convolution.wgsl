@@ -88,15 +88,15 @@ fn compute_main(
         }
 
         let dA = 1.;
-        let dB = .2;
-        let feed = .05;
+        let dB = .3;
+        let feed = .062;
         let kill = .062;
 
         let rd0 = cache[local.y][local.x].xy;
         let A = rd0.x;
         let B = rd0.y;
         let reaction = A * B * B;
-        var rd = vec2f(
+        let rd = vec2f(
           A + (dA * lap.x - reaction + feed * (1. - A)),
           B + (dB * lap.y + reaction - (kill + feed) * B),
         );

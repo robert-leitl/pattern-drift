@@ -41,7 +41,7 @@ export function initComposite(device, presentationFormat, tex) {
     });
     sampler = _device.createSampler({
         minFilter: 'linear',
-        magFilter: 'linear'
+        magFilter: 'nearest'
     });
     bindGroupParams = _device.createBindGroup({
         layout: bindGroupParamsLayout,

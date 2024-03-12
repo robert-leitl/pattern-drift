@@ -70,8 +70,8 @@ export function initConvolution(device, tex) {
 
 function createBindGroups(viewportSize, tex) { 
     inTexture = tex;
-    const w = inTexture.width / 2;
-    const h = inTexture.height / 2;
+    const w = Math.round(inTexture.width / 10);
+    const h = Math.round(inTexture.height / 10);
 
     blurTextures = blurTextures.map((v, ndx) => {
         const texture = _device.createTexture({
@@ -87,8 +87,9 @@ function createBindGroups(viewportSize, tex) {
         let data;
         if (ndx === 0) {
             const rgb = new Array(w * h * 4).fill(0);
-            const bx = [w / 2 - 5, w / 2 + 5];
-            const by = [h / 2 - 5, h / 2 + 5];
+            const s = 20;
+            const bx = [w / 2 - s, w / 2 + s];
+            const by = [h / 2 - s, h / 2 + s];
             for(let x=0; x<w; x++) {
                 for(let y=0; y<h; y++) {
                     const v = x > bx[0] && x < bx[1] && y > by[0] && y < by[1];
@@ -99,7 +100,7 @@ function createBindGroups(viewportSize, tex) {
             }
             data = new Uint8Array(rgb);
         } else {
-            data = new Uint8Array(new Array(w * h * 4).fill(255));
+            data = new Uint8Array(new Array(w * h * 4).fill(0));
         }
 
         _device.queue.writeTexture({ texture }, data, { bytesPerRow: w * 4 }, { width: w, height: h });
@@ -144,7 +145,7 @@ export function addConvolutionCommands(cmdEncoder) {
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bindGroupParams);
 
-    for(let i = 0; i < 25; i++) {
+    for(let i = 0; i < 10; i++) {
         pass.setBindGroup(1, bindGroup0);
         pass.dispatchWorkgroups(...dispatches);
     

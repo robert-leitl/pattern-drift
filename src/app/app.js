@@ -76,6 +76,8 @@ function createTestTexture(size) {
 }
 
 function resize(width, height) {
+  if (width <= 1 || height <=1 ) return;
+  
   canvas.width = Math.max(1, Math.min(width, device.limits.maxTextureDimension2D));
   canvas.height = Math.max(1, Math.min(height, device.limits.maxTextureDimension2D));
   viewportSize = [canvas.width, canvas.height].map(v => v * pixelRatio);
