@@ -1,6 +1,7 @@
 import * as wgh from 'webgpu-utils';
 import { initComposite, addCompositeCommands, resizeComposite } from './composite';
 import { initBlur, addBlurCommands, resizeBlur, getBlurResultTexture } from './blur';
+import { addConvolutionCommands, getConvolutionResultTexture, initConvolution, resizeConvolution } from './convolution';
 
 let adapter, device, context, presentationFormat;
 let canvas, pixelRatio, viewportSize;
@@ -29,8 +30,9 @@ async function main() {
     flipY: true,
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
   });
-  const testTexture = createTestTexture([30, 30]);
+  const testTexture = createTestTexture([100, 100]);
   
+  initConvolution(device, testTexture);
   initBlur(device, testTexture);
   initComposite(device, presentationFormat, imgTex);
 
@@ -74,8 +76,9 @@ function resize(width, height) {
   canvas.height = Math.max(1, Math.min(height, device.limits.maxTextureDimension2D));
   viewportSize = [canvas.width, canvas.height].map(v => v * pixelRatio);
 
+  resizeConvolution(viewportSize);
   resizeBlur(viewportSize);
-  resizeComposite(viewportSize, getBlurResultTexture());
+  resizeComposite(viewportSize, getConvolutionResultTexture());
 }
 
 function run(t = 0) {
@@ -88,6 +91,7 @@ function render() {
 
   const cmdEncoder = device.createCommandEncoder();
 
+  addConvolutionCommands(cmdEncoder);
   addBlurCommands(cmdEncoder);
   addCompositeCommands(cmdEncoder, context.getCurrentTexture().createView());
 
