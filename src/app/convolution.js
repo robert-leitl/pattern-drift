@@ -1,15 +1,15 @@
 import convolutionWGSL from './shader/convolution.wgsl?raw';
 import * as wgh from 'webgpu-utils';
 
-let _device, pipeline, bindGroupParams, bindGroupHInit, bindGroupH, bindGroupV, paramsUniforms, flipUniform, size, blurTextures = [null, null];
-let bindGroupParamsLayout, bindGroupHLayout;
+let _device, pipeline, bindGroupParams, bindGroup0, bindGroup1, paramsUniforms, blurTextures = [null, null];
+let bindGroupParamsLayout, bindGroup0Layout;
 let inTexture;
 
 // shader constants
 const kernelSize = 3;
 const workgroupSize = [8, 8];
 // each thread handles a tile of pixels
-const tileSize = [4, 4];
+const tileSize = [3, 3];
 // holds all the pixels needed for one workgroup
 const cacheSize = [
     tileSize[0] * workgroupSize[0],
@@ -35,14 +35,14 @@ export function initConvolution(device, tex) {
     };
     const descriptors = wgh.makeBindGroupLayoutDescriptors(defs, pipelineDesc);
     descriptors[1].entries.push({
-        binding: 1,
+        binding: 2,
         storageTexture: { access: 'write-only', format: 'rgba8unorm' },
         visibility: GPUShaderStage.COMPUTE
     });
     bindGroupParamsLayout = _device.createBindGroupLayout(descriptors[0]);
-    bindGroupHLayout = _device.createBindGroupLayout(descriptors[1]);
+    bindGroup0Layout = _device.createBindGroupLayout(descriptors[1]);
     const layout = _device.createPipelineLayout({
-        bindGroupLayouts: [bindGroupParamsLayout, bindGroupHLayout]
+        bindGroupLayouts: [bindGroupParamsLayout, bindGroup0Layout]
     });
     pipeline = _device.createComputePipeline({
         layout,
@@ -69,37 +69,40 @@ export function initConvolution(device, tex) {
     createBindGroups([1, 1]);
 }
 
-function createBindGroups(viewportSize) {
-    blurTextures = blurTextures.map(() => 
-    _device.createTexture({
-            size: { width: inTexture.width, height: inTexture.height },
+function createBindGroups(viewportSize) { 
+    const w = inTexture.width;
+    const h = inTexture.height;
+
+    blurTextures = blurTextures.map(() => {
+        const texture = _device.createTexture({
+            size: { width: w, height: h },
             format: 'rgba8unorm',
             usage: 
                 GPUTextureUsage.COPY_DST |
                 GPUTextureUsage.STORAGE_BINDING |
                 GPUTextureUsage.TEXTURE_BINDING |
                 GPUTextureUsage.RENDER_ATTACHMENT,
-        })
-    );
-    bindGroupHInit = _device.createBindGroup({
-        layout: bindGroupHLayout,
+        });
+
+        _device.queue.writeTexture({ texture }, new Uint8Array(new Array(w * h * 4).fill(255)), { bytesPerRow: w * 4 }, { width: w, height: h });
+
+        return texture;
+    });
+
+    bindGroup0 = _device.createBindGroup({
+        layout: bindGroup0Layout,
+        entries: [
+            { binding: 0, resource: inTexture.createView() },
+            { binding: 1, resource: blurTextures[0].createView() },
+            { binding: 2, resource: blurTextures[1].createView() },
+        ]
+    });
+    bindGroup1 = _device.createBindGroup({
+        layout: bindGroup0Layout,
         entries: [
             { binding: 0, resource: inTexture.createView() },
             { binding: 1, resource: blurTextures[1].createView() },
-        ]
-    });
-    bindGroupH = _device.createBindGroup({
-        layout: bindGroupHLayout,
-        entries: [
-            { binding: 0, resource: blurTextures[0].createView() },
-            { binding: 1, resource: blurTextures[1].createView() },
-        ]
-    });
-    bindGroupV = _device.createBindGroup({
-        layout: bindGroupHLayout,
-        entries: [
-            { binding: 0, resource: blurTextures[1].createView() },
-            { binding: 1, resource: blurTextures[0].createView() },
+            { binding: 2, resource: blurTextures[0].createView() },
         ]
     });
 }
@@ -109,20 +112,25 @@ export function getConvolutionResultTexture() {
 }
 
 export function resizeConvolution(viewportSize) {
-    size = [...viewportSize];
     createBindGroups(viewportSize);
 }
 
 export function addConvolutionCommands(cmdEncoder) {
     const pass = cmdEncoder.beginComputePass();
+
+    const dispatches = [
+        Math.ceil(inTexture.width / dispatchSize[0]),
+        Math.ceil(inTexture.height / dispatchSize[1])
+    ];
+
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bindGroupParams);
 
-    pass.setBindGroup(1, bindGroupHInit);
-    pass.dispatchWorkgroups(
-        Math.ceil(inTexture.width / dispatchSize[0]),
-        Math.ceil(inTexture.height / dispatchSize[1])
-    );
+    pass.setBindGroup(1, bindGroup0);
+    pass.dispatchWorkgroups(...dispatches);
+
+    pass.setBindGroup(1, bindGroup1);
+    pass.dispatchWorkgroups(...dispatches);
   
     pass.end();
 }

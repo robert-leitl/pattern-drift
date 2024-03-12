@@ -4,11 +4,12 @@ struct Params {
 };
 
 @group(0) @binding(0) var<uniform> params : Params;
-@group(1) @binding(0) var inputTex: texture_2d<f32>;
-@group(1) @binding(1) var outputTex: texture_storage_2d<rgba8unorm, write>;
+@group(1) @binding(0) var seedTex: texture_2d<f32>;
+@group(1) @binding(1) var inputTex: texture_2d<f32>;
+@group(1) @binding(2) var outputTex: texture_storage_2d<rgba8unorm, write>;
 
 // the cache for the texture lookups (tileSize * workgroupSize)
-var<workgroup> cache: array<array<vec3f, 32>, 32>;
+var<workgroup> cache: array<array<vec3f, 24>, 24>;
 
 @compute @workgroup_size(8, 8, 1)
 fn compute_main(
@@ -17,7 +18,7 @@ fn compute_main(
   @builtin(global_invocation_id) globalInvocationID : vec3<u32>
 ) {
   // each thread adds a tile of pixels to the workgroups shared memory
-  let tileSize: vec2u = vec2u(4, 4);
+  let tileSize: vec2u = vec2u(3, 3);
 
   let kernelArea: u32 = params.kernelSize * params.kernelSize;
 
@@ -43,7 +44,8 @@ fn compute_main(
       // for the convolution of the kernel within the dispatch (work) area
       let sample: vec2u = dispatchOffset + local - kernelOffset;
 
-      cache[local.y][local.x] = textureLoad(inputTex, sample, 0).rgb;
+      let seed: vec4f = textureLoad(seedTex, sample, 0);
+      cache[local.y][local.x] = textureLoad(inputTex, sample, 0).rgb * seed.rgb;
     }
   }
 
