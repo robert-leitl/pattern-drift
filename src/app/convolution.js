@@ -35,7 +35,7 @@ export function initConvolution(device, tex) {
     const descriptors = wgh.makeBindGroupLayoutDescriptors(defs, pipelineDesc);
     descriptors[1].entries.push({
         binding: 2,
-        storageTexture: { access: 'write-only', format: 'rgba8unorm' },
+        storageTexture: { access: 'write-only', format: 'rgba16float' },
         visibility: GPUShaderStage.COMPUTE
     });
     bindGroupParamsLayout = _device.createBindGroupLayout(descriptors[0]);
@@ -76,7 +76,7 @@ function createBindGroups(viewportSize, tex) {
     blurTextures = blurTextures.map((v, ndx) => {
         const texture = _device.createTexture({
             size: { width: w, height: h },
-            format: 'rgba8unorm',
+            format: 'rgba16float',
             usage: 
                 GPUTextureUsage.COPY_DST |
                 GPUTextureUsage.STORAGE_BINDING |
@@ -86,24 +86,23 @@ function createBindGroups(viewportSize, tex) {
 
         let data;
         if (ndx === 0) {
-            const rgb = new Array(w * h * 4).fill(0);
+            const rg = new Array(w * h * 4).fill(0);
             const s = 20;
             const bx = [w / 2 - s, w / 2 + s];
             const by = [h / 2 - s, h / 2 + s];
             for(let x=0; x<w; x++) {
                 for(let y=0; y<h; y++) {
                     const v = x > bx[0] && x < bx[1] && y > by[0] && y < by[1];
-                    rgb[(x + y * w) * 4 + 0] = v ? 0 : 255;
-                    rgb[(x + y * w) * 4 + 1] = v ? 255 : 0;
-                    rgb[(x + y * w) * 4 + 2] = 0;
+                    rg[(x + y * w) * 2 + 0] = v ? 0 : 1;
+                    rg[(x + y * w) * 2 + 1] = v ? 1 : 0;
                 }
             }
-            data = new Uint8Array(rgb);
+            data = new Float32Array(rg);
         } else {
-            data = new Uint8Array(new Array(w * h * 4).fill(0));
+            data = new Float32Array(new Array(w * h * 4).fill(0));
         }
-
-        _device.queue.writeTexture({ texture }, data, { bytesPerRow: w * 4 }, { width: w, height: h });
+        
+        _device.queue.writeTexture({ texture }, data, { bytesPerRow: w * 8 }, { width: w, height: h });
 
         return texture;
     });

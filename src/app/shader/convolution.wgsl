@@ -6,7 +6,7 @@ struct Params {
 @group(0) @binding(0) var<uniform> params : Params;
 @group(1) @binding(0) var seedTex: texture_2d<f32>;
 @group(1) @binding(1) var inputTex: texture_2d<f32>;
-@group(1) @binding(2) var outputTex: texture_storage_2d<rgba8unorm, write>;
+@group(1) @binding(2) var outputTex: texture_storage_2d<rgba16float, write>;
 
 // the cache for the texture lookups (tileSize * workgroupSize)
 var<workgroup> cache: array<array<vec3f, 24>, 24>;
@@ -45,7 +45,7 @@ fn compute_main(
       var sample: vec2u = dispatchOffset + local - kernelOffset;
 
       // clamp the sample to the edges of the input texture
-      sample = clamp(sample, vec2u(1, 1), dims - vec2u(1, 1));
+      sample = clamp(sample, vec2u(0, 0), dims);
 
       let seed: vec4f = textureLoad(seedTex, sample, 0);
       let input: vec4f = textureLoad(inputTex, sample, 0);
@@ -88,7 +88,7 @@ fn compute_main(
         }
 
         let dA = 1.;
-        let dB = .3;
+        let dB = .4;
         let feed = .062;
         let kill = .062;
 
