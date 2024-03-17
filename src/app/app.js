@@ -1,7 +1,7 @@
 import * as wgh from 'webgpu-utils';
 import { initComposite, addCompositeCommands, resizeComposite } from './composite';
 import { initBlur, addBlurCommands, resizeBlur, getBlurResultTexture } from './blur';
-import { addConvolutionCommands, getConvolutionResultTexture, initConvolution, resizeConvolution } from './convolution';
+import { addReactionDiffusionCommands, getReactionDiffusionResultTexture, initReactionDiffusion, resizeReactionDiffusion } from './reaction-diffusion';
 
 let adapter, device, context, presentationFormat;
 let canvas, pixelRatio, viewportSize = [100, 100];
@@ -23,7 +23,7 @@ async function main() {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
+    alphaMode: 'premultiplied', 
   });
 
   const imgTex = await wgh.createTextureFromImage(device, new URL('../assets/img.jpg', import.meta.url), {
@@ -35,7 +35,7 @@ async function main() {
 
   inTexture = testTexture;
   
-  initConvolution(device, inTexture);
+  initReactionDiffusion(device, inTexture);
   initComposite(device, presentationFormat, imgTex);
 
   const observer = new ResizeObserver(entries => {
@@ -84,8 +84,8 @@ function resize(width, height) {
 
   inTexture = createTestTexture(viewportSize);
 
-  resizeConvolution(viewportSize, inTexture);
-  resizeComposite(viewportSize, getConvolutionResultTexture());
+  resizeReactionDiffusion(viewportSize, inTexture);
+  resizeComposite(viewportSize, getReactionDiffusionResultTexture());
 }
 
 function run(t = 0) {
@@ -99,7 +99,7 @@ function render() {
 
   const cmdEncoder = device.createCommandEncoder();
 
-  addConvolutionCommands(cmdEncoder);
+  addReactionDiffusionCommands(cmdEncoder);
   addCompositeCommands(cmdEncoder, context.getCurrentTexture().createView());
 
   device.queue.submit([cmdEncoder.finish()]);

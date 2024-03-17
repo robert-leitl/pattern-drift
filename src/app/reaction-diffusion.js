@@ -1,4 +1,4 @@
-import convolutionWGSL from './shader/convolution.wgsl?raw';
+import reactionDiffusionWGSL from './shader/reaction-diffusion.wgsl?raw';
 import * as wgh from 'webgpu-utils';
 
 let _device, pipeline, bindGroupParams, bindGroup0, bindGroup1, paramsUniforms, blurTextures = [null, null];
@@ -22,10 +22,10 @@ const dispatchSize = [
     cacheSize[1] - Math.max(0, (kernelSize - 1)),
 ];
 
-export function initConvolution(device, tex) {
+export function initReactionDiffusion(device, tex) {
     _device = device;
-    const module = _device.createShaderModule({ code: convolutionWGSL });
-    const defs = wgh.makeShaderDataDefinitions(convolutionWGSL);
+    const module = _device.createShaderModule({ code: reactionDiffusionWGSL });
+    const defs = wgh.makeShaderDataDefinitions(reactionDiffusionWGSL);
     const pipelineDesc = {
         compute: {
             module,
@@ -125,32 +125,32 @@ function createBindGroups(viewportSize, tex) {
     });
 }
 
-export function getConvolutionResultTexture() {
+export function getReactionDiffusionResultTexture() {
     return blurTextures[1];
 }
 
-export function resizeConvolution(viewportSize, tex) {
+export function resizeReactionDiffusion(viewportSize, tex) {
     createBindGroups(viewportSize, tex);
 }
 
-export function addConvolutionCommands(cmdEncoder) {
-    const pass = cmdEncoder.beginComputePass();
+export function addReactionDiffusionCommands(cmdEncoder) {
+    const passEncoder = cmdEncoder.beginComputePass();
 
     const dispatches = [
         Math.ceil(inTexture.width / dispatchSize[0]),
         Math.ceil(inTexture.height / dispatchSize[1])
     ];
 
-    pass.setPipeline(pipeline);
-    pass.setBindGroup(0, bindGroupParams);
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, bindGroupParams);
 
     for(let i = 0; i < 10; i++) {
-        pass.setBindGroup(1, bindGroup0);
-        pass.dispatchWorkgroups(...dispatches);
+        passEncoder.setBindGroup(1, bindGroup0);
+        passEncoder.dispatchWorkgroups(...dispatches);
     
-        pass.setBindGroup(1, bindGroup1);
-        pass.dispatchWorkgroups(...dispatches);
+        passEncoder.setBindGroup(1, bindGroup1);
+        passEncoder.dispatchWorkgroups(...dispatches);
     }
   
-    pass.end();
+    passEncoder.end();
 }

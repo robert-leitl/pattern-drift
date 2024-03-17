@@ -72,7 +72,7 @@ export function resizeComposite(viewportSize, tex) {
 }
 
 export function addCompositeCommands(cmdEncoder, view) {
-    const pass = cmdEncoder.beginRenderPass({
+    const passEncoder = cmdEncoder.beginRenderPass({
         colorAttachments: [
             {
                 view,
@@ -82,9 +82,9 @@ export function addCompositeCommands(cmdEncoder, view) {
             }
         ]
     });
-    pass.setPipeline(pipeline);
-    pass.setBindGroup(0, bindGroupParams);
-    pass.setBindGroup(1, bindGroup1);
-    pass.draw(3);
-    pass.end();
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, bindGroupParams);
+    passEncoder.setBindGroup(1, bindGroup1);
+    passEncoder.draw(3);
+    passEncoder.end();
 }
