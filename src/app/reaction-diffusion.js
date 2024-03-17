@@ -1,3 +1,4 @@
+import { Float16Array } from '@petamoriken/float16';
 import reactionDiffusionWGSL from './shader/reaction-diffusion.wgsl?raw';
 import * as wgh from 'webgpu-utils';
 
@@ -84,25 +85,27 @@ function createBindGroups(viewportSize, tex) {
                 GPUTextureUsage.RENDER_ATTACHMENT,
         });
 
-        let data;
+        let dataf16;
         if (ndx === 0) {
-            const rg = new Array(w * h * 4).fill(0);
+            const rgba = new Array(w * h * 4).fill(0);
             const s = 20;
             const bx = [w / 2 - s, w / 2 + s];
             const by = [h / 2 - s, h / 2 + s];
             for(let x=0; x<w; x++) {
                 for(let y=0; y<h; y++) {
                     const v = x > bx[0] && x < bx[1] && y > by[0] && y < by[1];
-                    rg[(x + y * w) * 2 + 0] = v ? 0 : 1;
-                    rg[(x + y * w) * 2 + 1] = v ? 1 : 0;
+                    rgba[(x + y * w) * 4 + 0] = v ? 0 : 1;
+                    rgba[(x + y * w) * 4 + 1] = v ? 1 : 0;
+                    rgba[(x + y * w) * 4 + 2] = 1;
+                    rgba[(x + y * w) * 4 + 3] = 1;
                 }
             }
-            data = new Float32Array(rg);
+            dataf16 = new Float16Array(rgba);
         } else {
-            data = new Float32Array(new Array(w * h * 4).fill(0));
+            dataf16 = new Float16Array(new Array(w * h * 4).fill(0));
         }
         
-        _device.queue.writeTexture({ texture }, data, { bytesPerRow: w * 8 }, { width: w, height: h });
+        _device.queue.writeTexture({ texture }, dataf16.buffer, { bytesPerRow: w * 8 }, { width: w, height: h });
 
         return texture;
     });
