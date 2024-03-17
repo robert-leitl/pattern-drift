@@ -24,9 +24,9 @@ const kernelSize = ${kernelSize};
 const dispatchSize = vec2u(${dispatchSize[0]},${dispatchSize[1]});
 const tileSize = vec2u(${tileSize[0]},${tileSize[1]});
 
-@group(1) @binding(0) var seedTex: texture_2d<f32>;
-@group(1) @binding(1) var inputTex: texture_2d<f32>;
-@group(1) @binding(2) var outputTex: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(0) var seedTex: texture_2d<f32>;
+@group(0) @binding(1) var inputTex: texture_2d<f32>;
+@group(0) @binding(2) var outputTex: texture_storage_2d<rgba16float, write>;
 
 // the cache for the texture lookups (tileSize * workgroupSize)
 var<workgroup> cache: array<array<vec3f, 24>, 24>;

@@ -4,8 +4,10 @@ import * as wgh from 'webgpu-utils';
 
 export class CompositePass extends PostProcessingPass {
 
-    constructor(renderer) {
+    constructor(renderer, reactionDiffusion) {
         super(renderer);
+
+        this.reactionDiffusion = reactionDiffusion;
 
         // create bind group layouts
         const defs = wgh.makeShaderDataDefinitions(CompositeShader);
@@ -25,7 +27,7 @@ export class CompositePass extends PostProcessingPass {
             layout: bindGroupLayout,
             entries: [
                 { binding: 0, resource: this.sampler },
-                { binding: 1, resource: this.emptyTexture.createView() },
+                { binding: 1, resource: this.reactionDiffusion.resultStorageTexture.createView() },
             ]
         });
 

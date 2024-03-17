@@ -17,7 +17,7 @@ async function init() {
   reactionDiffusion = new ReactionDiffusion(renderer);
   await reactionDiffusion.init();
 
-  compositePass = new CompositePass(renderer);
+  compositePass = new CompositePass(renderer, reactionDiffusion);
   await compositePass.init();
 
   initResizeObserver(canvas);
