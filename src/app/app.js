@@ -1,3 +1,79 @@
+import {WebGPURenderer} from './renderer/webgpu-renderer.js';
+import {CompositePass} from './post-processing/composite-pass.js';
+import {ReactionDiffusion} from './compute/reaction-diffusion.js';
+
+let renderer, reactionDiffusion, compositePass;
+
+async function init() {
+  const adapter = await navigator.gpu?.requestAdapter();
+
+  if (!adapter) return;
+
+  const canvas = document.querySelector('canvas');
+
+  renderer = new WebGPURenderer(canvas);
+  await renderer.init(adapter);
+
+  reactionDiffusion = new ReactionDiffusion(renderer);
+  await reactionDiffusion.init();
+
+  compositePass = new CompositePass(renderer);
+  await compositePass.init();
+
+  initResizeObserver(canvas);
+
+  run();
+}
+
+function initResizeObserver(canvas) {
+  // handle resizing of the canvas
+  const observer = new ResizeObserver(entries => {
+    const devicePixelRatio = Math.min(2, window.devicePixelRatio);
+    const entry = entries[0];
+    const contentBox = entry.contentBoxSize;
+    const dpContentBox = entry.devicePixelContentBoxSize;
+    const width = dpContentBox?.[0].inlineSize || contentBox[0].inlineSize * devicePixelRatio;
+    const height = dpContentBox?.[0].blockSize || contentBox[0].blockSize * devicePixelRatio;
+    resize(width, height);
+  });
+  observer.observe(canvas);
+}
+
+function run(t = 0) {
+  const commandEncoder = renderer.device.createCommandEncoder();
+
+  animate(commandEncoder);
+  render(commandEncoder);
+
+  renderer.device.queue.submit([commandEncoder.finish()]);
+
+  requestAnimationFrame(t => run(t));
+}
+
+function resize(width, height) {
+  if (width <= 1 || height <=1 ) return;
+
+  renderer.setSize(width, height);
+}
+
+function animate(commandEncoder) {
+  const computePassEncoder = commandEncoder.beginComputePass();
+  reactionDiffusion.compute(computePassEncoder);
+  computePassEncoder.end();
+}
+
+function render(commandEncoder) {
+  const compositePassEncoder = commandEncoder.beginRenderPass({...compositePass.renderPassDescriptor});
+  compositePass.render(compositePassEncoder);
+  compositePassEncoder.end();
+}
+
+export const App = {
+  init
+};
+
+/*
+
 import * as wgh from 'webgpu-utils';
 import { initComposite, addCompositeCommands, resizeComposite } from './composite';
 import { initBlur, addBlurCommands, resizeBlur, getBlurResultTexture } from './blur';
@@ -15,7 +91,7 @@ async function main() {
     fail('need a browser that supports WebGPU');
     return;
   }
-  
+
   canvas = document.querySelector('canvas');
 
   context = canvas.getContext('webgpu');
@@ -23,7 +99,7 @@ async function main() {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied', 
+    alphaMode: 'premultiplied',
   });
 
   const imgTex = await wgh.createTextureFromImage(device, new URL('../assets/img.jpg', import.meta.url), {
@@ -34,7 +110,7 @@ async function main() {
   const testTexture = createTestTexture(viewportSize);
 
   inTexture = testTexture;
-  
+
   initReactionDiffusion(device, inTexture);
   initComposite(device, presentationFormat, imgTex);
 
@@ -77,7 +153,7 @@ function createTestTexture(size) {
 
 function resize(width, height) {
   if (width <= 1 || height <=1 ) return;
-  
+
   canvas.width = Math.max(1, Math.min(width, device.limits.maxTextureDimension2D));
   canvas.height = Math.max(1, Math.min(height, device.limits.maxTextureDimension2D));
   viewportSize = [canvas.width, canvas.height].map(v => v * pixelRatio);
@@ -112,4 +188,4 @@ function fail(msg) {
   document.body.appendChild(elem);
 }
 
-main();
+main();*/
