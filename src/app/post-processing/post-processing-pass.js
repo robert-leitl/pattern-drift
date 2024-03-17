@@ -96,7 +96,7 @@ export class PostProcessingPass {
         });
     }
 
-    resize() {}
+    setSize(width, height) {}
 
     render(renderPassEncoder) {
         renderPassEncoder.setPipeline(this.renderPipeline);

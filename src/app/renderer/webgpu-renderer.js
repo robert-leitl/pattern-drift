@@ -36,4 +36,8 @@ export class WebGPURenderer {
         this.canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
         this.canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
     }
+
+    getSize() {
+        return [this.canvas.width, this.canvas.height];
+    }
 }

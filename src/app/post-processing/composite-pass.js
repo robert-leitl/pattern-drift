@@ -23,13 +23,6 @@ export class CompositePass extends PostProcessingPass {
             minFilter: 'linear',
             magFilter: 'nearest'
         });
-        this.bindGroup = renderer.device.createBindGroup({
-            layout: bindGroupLayout,
-            entries: [
-                { binding: 0, resource: this.sampler },
-                { binding: 1, resource: this.reactionDiffusion.resultStorageTexture.createView() },
-            ]
-        });
 
         this.renderPassDescriptorTemplate = { label: 'composite pass' };
 
@@ -37,6 +30,8 @@ export class CompositePass extends PostProcessingPass {
     }
 
     async init() {
+        this.createBindGroups();
+
         await super.init(
             'composite pipeline',
             CompositeShader,
@@ -53,8 +48,10 @@ export class CompositePass extends PostProcessingPass {
         }
     }
 
-    resize() {
-        super.resize();
+    setSize(width, height) {
+        super.setSize(width, height);
+
+        this.createBindGroups();
     }
 
     render(renderPassEncoder) {
@@ -65,4 +62,13 @@ export class CompositePass extends PostProcessingPass {
         super.render(renderPassEncoder);
     }
 
+    createBindGroups() {
+        this.bindGroup = this.renderer.device.createBindGroup({
+            layout: this.bindGroupLayouts[0],
+            entries: [
+                { binding: 0, resource: this.sampler },
+                { binding: 1, resource: this.reactionDiffusion.resultStorageTexture.createView() },
+            ]
+        });
+    }
 }

@@ -4,7 +4,7 @@ import {Float16Array} from '@petamoriken/float16';
 
 export class ReactionDiffusion {
 
-    ITERATIONS = 10;
+    ITERATIONS = 20;
 
     constructor(renderer) {
         this.renderer = renderer;
@@ -25,9 +25,7 @@ export class ReactionDiffusion {
             visibility: GPUShaderStage.COMPUTE
         });
         this.bindGroupLayout = this.renderer.device.createBindGroupLayout(descriptors[0]);
-    }
 
-    async init() {
         const pipelineLayout = this.renderer.device.createPipelineLayout({
             bindGroupLayouts: [this.bindGroupLayout]
         });
@@ -37,12 +35,34 @@ export class ReactionDiffusion {
             ...this.pipelineDescriptor
         });
 
-        const w = 200;
-        const h = 200;
+        this.emptyTexture = this.renderer.device.createTexture({
+            label: 'empty texture',
+            size: [1, 1],
+            dimension: '2d',
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        });
+
+        this.init(100, 100);
+    }
+
+    init(width, height) {
+        this.createTextures(width, height);
+        this.createBindGroups();
+    }
+
+    get resultStorageTexture() {
+        return this.blurTextures[0];
+    }
+
+    createTextures(width, height) {
+        if (this.blurTextures) {
+            this.blurTextures.forEach(texture => texture.destroy());
+        }
 
         this.blurTextures = new Array(2).fill(null).map((v, ndx) => {
             const texture = this.renderer.device.createTexture({
-                size: { width: w, height: h },
+                size: { width, height },
                 format: 'rgba16float',
                 usage:
                     GPUTextureUsage.COPY_DST |
@@ -51,6 +71,8 @@ export class ReactionDiffusion {
                     GPUTextureUsage.RENDER_ATTACHMENT,
             });
 
+            const w = width;
+            const h = height;
             let data;
             if (ndx === 0) {
                 const rgba = new Array(w * h * 4).fill(0);
@@ -71,19 +93,18 @@ export class ReactionDiffusion {
                 data = new Float16Array(new Array(w * h * 4).fill(0));
             }
 
-            this.renderer.device.queue.writeTexture({ texture }, data.buffer, { bytesPerRow: w * 8 }, { width: w, height: h });
+            this.renderer.device.queue.writeTexture({ texture }, data.buffer, { bytesPerRow: width * 8 }, { width, height });
 
             return texture;
         });
 
-        this.emptyTexture = this.renderer.device.createTexture({
-            label: 'empty texture',
-            size: [1, 1],
-            dimension: '2d',
-            format: 'rgba8unorm',
-            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-        });
+        this.dispatches = [
+            Math.ceil(width / ReactionDiffusionShaderDispatchSize[0]),
+            Math.ceil(height / ReactionDiffusionShaderDispatchSize[1])
+        ];
+    }
 
+    createBindGroups() {
         this.swapBindGroups = [
             this.renderer.device.createBindGroup({
                 layout: this.bindGroupLayout,
@@ -104,24 +125,16 @@ export class ReactionDiffusion {
         ];
     }
 
-    get resultStorageTexture() {
-        return this.blurTextures[0];
-    }
-
     compute(computePassEncoder) {
-        const dispatches = [
-            Math.ceil(200 / ReactionDiffusionShaderDispatchSize[0]),
-            Math.ceil(200 / ReactionDiffusionShaderDispatchSize[1])
-        ];
 
         computePassEncoder.setPipeline(this.computePipeline);
 
         for(let i = 0; i < this.ITERATIONS; i++) {
             computePassEncoder.setBindGroup(0, this.swapBindGroups[0]);
-            computePassEncoder.dispatchWorkgroups(dispatches[0], dispatches[1]);
+            computePassEncoder.dispatchWorkgroups(this.dispatches[0], this.dispatches[1]);
 
             computePassEncoder.setBindGroup(0, this.swapBindGroups[1]);
-            computePassEncoder.dispatchWorkgroups(dispatches[0], dispatches[1]);
+            computePassEncoder.dispatchWorkgroups(this.dispatches[0], this.dispatches[1]);
         }
     }
 }

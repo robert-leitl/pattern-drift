@@ -4,6 +4,8 @@ import {ReactionDiffusion} from './compute/reaction-diffusion.js';
 
 let renderer, reactionDiffusion, compositePass;
 
+const REACTION_DIFFUSION_RESOLUTION_FACTOR = 0.25;
+
 async function init() {
   const adapter = await navigator.gpu?.requestAdapter();
 
@@ -15,7 +17,6 @@ async function init() {
   await renderer.init(adapter);
 
   reactionDiffusion = new ReactionDiffusion(renderer);
-  await reactionDiffusion.init();
 
   compositePass = new CompositePass(renderer, reactionDiffusion);
   await compositePass.init();
@@ -54,6 +55,14 @@ function resize(width, height) {
   if (width <= 1 || height <=1 ) return;
 
   renderer.setSize(width, height);
+  const viewportSize = renderer.getSize();
+
+  reactionDiffusion.init(
+      Math.round(viewportSize[0] * REACTION_DIFFUSION_RESOLUTION_FACTOR),
+      Math.round(viewportSize[1] * REACTION_DIFFUSION_RESOLUTION_FACTOR)
+  );
+
+  compositePass.setSize(viewportSize[0], viewportSize[1]);
 }
 
 function animate(commandEncoder) {
