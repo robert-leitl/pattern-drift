@@ -156,8 +156,9 @@ export class Paint {
         ];
 
         // update uniform buffers
+        const viewportSize = this.renderer.getSize().map(value => value / this.renderer.devicePixelRatio);
         this.renderInfoUniform.view.set({
-           viewportSize: this.renderer.getSize(),
+           viewportSize,
            deltaTimeMS: timing.deltaTimeMS,
            timeMS: timing.timeMS
         });

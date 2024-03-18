@@ -103,22 +103,23 @@ fn compute_main(
       paint = min(1., paint * strength * 200.);
       
       
+      let velocityMaskRadius = radius * 4.;
+      let velocityMask = 1. - smoothstep(velocityMaskRadius, velocityMaskRadius + smoothness, dist + smoothness * .2);
+      var vel: vec2f = pointerInfo.velocity * 1000. * velocityMask;
+      vel = (inputValue.xy * 1.2 + vel) / 2.;
       
-      
-      var vel: vec2f = pointerInfo.velocity * 10. * paint;
-      vel = vec2(0.);
-      vel = (inputValue.xy + vel) / 2.;
-      var flowVel = st * 2. - 1.;
-      flowVel = normalize(flowVel) * max(0., (length(flowVel)));
+      var flowVel = (st * 2. - 1.) + (pointerInfo.position - uv) * .1;
+      //flowVel = normalize(flowVel) * .3;// * max(1., (length(flowVel)));
+      flowVel = normalize(flowVel) * min(.3, max(0., (length(flowVel))));
       
       
       let velOffset: vec2u = vec2u((uv - (vel + flowVel) * .01) * vec2f(dims));
       let offsetInputValue = textureLoad(inputTex, velOffset, 0);
-      //paint += offsetInputValue.b * .25 - .1;
-      vel += offsetInputValue.xy * 0.1;
+      paint += offsetInputValue.b;
+      vel = (offsetInputValue.xy * 1.5 + vel) / 2.;
       
       // combine with the previous paint
-      var value = clamp(inputValue.b + paint, 0., 1.);
+      var value = clamp(paint, 0., 1.);
       
       var result: vec4f = vec4(vec4(vel, value, value));
       

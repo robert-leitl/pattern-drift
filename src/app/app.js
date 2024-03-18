@@ -3,7 +3,7 @@ import {CompositePass} from './post-processing/composite-pass.js';
 import {ReactionDiffusion} from './compute/reaction-diffusion.js';
 import {Paint} from './compute/paint.js';
 
-let renderer, paint, reactionDiffusion, compositePass;
+let devicePixelRatio, renderer, paint, reactionDiffusion, compositePass;
 
 const REACTION_DIFFUSION_RESOLUTION_FACTOR = 0.25;
 
@@ -41,8 +41,9 @@ async function init() {
   if (!adapter) return;
 
   const canvas = document.querySelector('canvas');
+  devicePixelRatio = Math.min(2, window.devicePixelRatio);
 
-  renderer = new WebGPURenderer(canvas);
+  renderer = new WebGPURenderer(canvas, devicePixelRatio);
   await renderer.init(adapter);
 
   paint = new Paint(renderer);
@@ -66,7 +67,7 @@ function initPointerInteraction(canvas) {
 }
 
 function getNormalizedPointerPosition(e) {
-  const size = renderer.getSize();
+  const size = renderer.getSize().map(value => value / renderer.devicePixelRatio);
   return [
     e.clientX / size[0],
     1 - (e.clientY / size[1])
@@ -93,7 +94,6 @@ function onPointerUp(e) {
 function initResizeObserver(canvas) {
   // handle resizing of the canvas
   const observer = new ResizeObserver(entries => {
-    const devicePixelRatio = Math.min(2, window.devicePixelRatio);
     const entry = entries[0];
     const contentBox = entry.contentBoxSize;
     const dpContentBox = entry.devicePixelContentBoxSize;

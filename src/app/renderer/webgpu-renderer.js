@@ -1,7 +1,8 @@
 export class WebGPURenderer {
 
-    constructor(canvas) {
+    constructor(canvas, devicePixelRatio) {
         this.canvas = canvas;
+        this.devicePixelRatio = devicePixelRatio;
     }
 
     async init(adapter) {
