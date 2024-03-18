@@ -18,6 +18,7 @@ const dispatchSize = [
 
 export const ReactionDiffusionShaderDispatchSize = dispatchSize;
 
+// language=C
 export const ReactionDiffusionShader = `
 
 const kernelSize = ${kernelSize};

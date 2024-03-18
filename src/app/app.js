@@ -7,6 +7,37 @@ let renderer, paint, reactionDiffusion, compositePass;
 
 const REACTION_DIFFUSION_RESOLUTION_FACTOR = 0.25;
 
+const timing = {
+  // the target duration of one frame in milliseconds
+  TARGET_FRAME_DURATION_MS: 16,
+
+  // total time in milliseconds
+  timeMS: 0,
+
+  // duration between the previous and the current animation frame in milliseconds
+  deltaTimeMS: 0,
+
+  // total frame count according to the target frame duration
+  frames: 0,
+
+  // relative frames according to the target frame duration (1 = 60 fps)
+  // gets smaller with higher frame rates --> use to adapt animation timing
+  deltaFrames: 0,
+};
+
+const pointerInfo = {
+  isDown: false,
+
+  // normalized pointer position (0..1, flip-y)
+  position: [0, 0],
+
+  // velocity of the normalized pointer position
+  velocity: [0, 0],
+
+  // normalized pointer position from the previous frame
+  previousPosition: [0, 0],
+}
+
 async function init() {
   const adapter = await navigator.gpu?.requestAdapter();
 
@@ -24,9 +55,53 @@ async function init() {
   compositePass = new CompositePass(renderer, paint, reactionDiffusion);
   await compositePass.init();
 
+  initPointerInteraction(canvas);
   initResizeObserver(canvas);
 
   run();
+}
+
+function initPointerInteraction(canvas) {
+  canvas.addEventListener('pointerdown', e => onPointerDown(e));
+  canvas.addEventListener('pointerup', e => onPointerUp(e));
+  canvas.addEventListener('pointerleave', e => onPointerUp(e));
+  canvas.addEventListener('pointermove', e => onPointerMove(e));
+}
+
+function getNormalizedPointerPosition(e) {
+  const size = renderer.getSize();
+  return [
+    e.clientX / size[0],
+    1 - (e.clientY / size[1])
+  ];
+}
+
+function onPointerDown(e) {
+  pointerInfo.isDown = true;
+
+  pointerInfo.position = getNormalizedPointerPosition(e);
+  pointerInfo.previousPosition = [...pointerInfo.position];
+  pointerInfo.velocity = [0, 0];
+}
+
+function onPointerMove(e) {
+  if (!pointerInfo.isDown) return;
+
+  const newPosition = getNormalizedPointerPosition(e);
+
+  pointerInfo.velocity = [
+    (newPosition[0] - pointerInfo.previousPosition[0]) / timing.deltaTimeMS,
+    (newPosition[1] - pointerInfo.previousPosition[1]) / timing.deltaTimeMS
+  ];
+  pointerInfo.previousPosition = [...pointerInfo.position];
+  pointerInfo.position = newPosition;
+}
+
+function onPointerUp(e) {
+  pointerInfo.isDown = false;
+
+  pointerInfo.velocity = [0, 0];
+  pointerInfo.previousPosition = [...pointerInfo.position];
 }
 
 function initResizeObserver(canvas) {
@@ -44,6 +119,8 @@ function initResizeObserver(canvas) {
 }
 
 function run(t = 0) {
+  updateTiming(t);
+
   const commandEncoder = renderer.device.createCommandEncoder();
 
   animate(commandEncoder);
@@ -72,7 +149,7 @@ function resize(width, height) {
 
 function animate(commandEncoder) {
   const computePassEncoder = commandEncoder.beginComputePass();
-  paint.compute(computePassEncoder);
+  paint.compute(computePassEncoder, timing, pointerInfo);
   reactionDiffusion.compute(computePassEncoder);
   computePassEncoder.end();
 }
@@ -83,124 +160,13 @@ function render(commandEncoder) {
   compositePassEncoder.end();
 }
 
+function updateTiming(t) {
+  timing.deltaTimeMS = Math.min(timing.TARGET_FRAME_DURATION_MS * 2, t - timing.timeMS);
+  timing.timeMS = t;
+  timing.deltaFrames = timing.deltaTimeMS / timing.TARGET_FRAME_DURATION_MS;
+  timing.frames += timing.deltaFrames;
+}
+
 export const App = {
   init
 };
-
-/*
-
-import * as wgh from 'webgpu-utils';
-import { initComposite, addCompositeCommands, resizeComposite } from './composite';
-import { initBlur, addBlurCommands, resizeBlur, getBlurResultTexture } from './blur';
-import { addReactionDiffusionCommands, getReactionDiffusionResultTexture, initReactionDiffusion, resizeReactionDiffusion } from './reaction-diffusion';
-
-let adapter, device, context, presentationFormat;
-let canvas, pixelRatio, viewportSize = [100, 100];
-let inTexture;
-
-async function main() {
-  pixelRatio = window.devicePixelRatio;
-  adapter = await navigator.gpu?.requestAdapter();
-  device = await adapter?.requestDevice();
-  if (!device) {
-    fail('need a browser that supports WebGPU');
-    return;
-  }
-
-  canvas = document.querySelector('canvas');
-
-  context = canvas.getContext('webgpu');
-  presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({
-    device,
-    format: presentationFormat,
-    alphaMode: 'premultiplied',
-  });
-
-  const imgTex = await wgh.createTextureFromImage(device, new URL('../assets/img.jpg', import.meta.url), {
-    mips: false,
-    flipY: true,
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
-  });
-  const testTexture = createTestTexture(viewportSize);
-
-  inTexture = testTexture;
-
-  initReactionDiffusion(device, inTexture);
-  initComposite(device, presentationFormat, imgTex);
-
-  const observer = new ResizeObserver(entries => {
-    for (const entry of entries) {
-      const width = entry.contentBoxSize[0].inlineSize;
-      const height = entry.contentBoxSize[0].blockSize;
-      resize(width, height);
-    }
-  });
-  observer.observe(canvas);
-
-  resize(1, 1);
-  run();
-}
-
-function createTestTexture(size) {
-  const w = size[0];
-  const h = size[1];
-  const rgb = new Array(w * h * 4).fill(0);
-  const bx = [w / 2 - 5, w / 2 + 5];
-  const by = [h / 2 - 5, h / 2 + 5];
-  for(let x=0; x<w; x++) {
-    for(let y=0; y<h; y++) {
-      const v = x > bx[0] && x < bx[1] && y > by[0] && y < by[1];
-      rgb[(x + y * w) * 4 + 0] = v ? 0 : 255;
-      rgb[(x + y * w) * 4 + 1] = v ? 255 : 0;
-      rgb[(x + y * w) * 4 + 2] = 0;
-    }
-  }
-  const data = new Uint8Array(rgb);
-  const texture = device.createTexture({
-    size: { width: w, height: h },
-    format: "rgba8unorm",
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-  });
-  device.queue.writeTexture({ texture }, data, { bytesPerRow: w * 4 }, { width: w, height: h });
-  return texture;
-}
-
-function resize(width, height) {
-  if (width <= 1 || height <=1 ) return;
-
-  canvas.width = Math.max(1, Math.min(width, device.limits.maxTextureDimension2D));
-  canvas.height = Math.max(1, Math.min(height, device.limits.maxTextureDimension2D));
-  viewportSize = [canvas.width, canvas.height].map(v => v * pixelRatio);
-
-  inTexture = createTestTexture(viewportSize);
-
-  resizeReactionDiffusion(viewportSize, inTexture);
-  resizeComposite(viewportSize, getReactionDiffusionResultTexture());
-}
-
-function run(t = 0) {
-  render();
-
-  requestAnimationFrame(t => run(t));
-}
-
-function render() {
-  if (canvas.width < 1 || canvas.height < 1) return;
-
-  const cmdEncoder = device.createCommandEncoder();
-
-  addReactionDiffusionCommands(cmdEncoder);
-  addCompositeCommands(cmdEncoder, context.getCurrentTexture().createView());
-
-  device.queue.submit([cmdEncoder.finish()]);
-}
-
-function fail(msg) {
-  const elem = document.createElement('p');
-  elem.textContent = msg;
-  elem.style.color = 'red';
-  document.body.appendChild(elem);
-}
-
-main();*/

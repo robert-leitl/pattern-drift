@@ -16,15 +16,54 @@ export class Paint {
             }
         };
         const descriptors = wgh.makeBindGroupLayoutDescriptors(defs, this.pipelineDescriptor);
-        descriptors[0].entries.push({
+        descriptors[1].entries.push({
             binding: 1,
             storageTexture: { access: 'write-only', format: 'rgba16float' },
             visibility: GPUShaderStage.COMPUTE
         });
-        this.bindGroupLayout = this.renderer.device.createBindGroupLayout(descriptors[0]);
+        this.texturesBindGroupLayout = this.renderer.device.createBindGroupLayout(descriptors[1]);
+
+        // create uniform buffers, layouts and bind groups
+        const renderInfoUniformView = wgh.makeStructuredView(defs.uniforms.renderInfo);
+        this.renderInfoUniform = {
+            view: renderInfoUniformView,
+            buffer: renderer.device.createBuffer({
+                size: renderInfoUniformView.arrayBuffer.byteLength,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            })
+        };
+        const pointerInfoUniformView = wgh.makeStructuredView(defs.uniforms.pointerInfo);
+        this.pointerInfoUniform = {
+            view: pointerInfoUniformView,
+            buffer: renderer.device.createBuffer({
+                size: pointerInfoUniformView.arrayBuffer.byteLength,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            })
+        };
+        const uniformsBindGroupLayout = this.renderer.device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: this.renderInfoUniform.buffer
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: this.pointerInfoUniform.buffer
+                }
+            ]
+        });
+        this.uniformsBindGroup = this.renderer.device.createBindGroup({
+            layout: uniformsBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: this.renderInfoUniform.buffer }},
+                { binding: 1, resource: { buffer: this.pointerInfoUniform.buffer }},
+            ],
+        });
 
         const pipelineLayout = this.renderer.device.createPipelineLayout({
-            bindGroupLayouts: [this.bindGroupLayout]
+            bindGroupLayouts: [uniformsBindGroupLayout, this.texturesBindGroupLayout]
         });
         this.computePipeline = this.renderer.device.createComputePipeline({
             label: 'paint compute pipeline',
@@ -40,7 +79,7 @@ export class Paint {
         this.currentSwapIndex = 0;
 
         this.createTextures(width, height);
-        this.createBindGroups();
+        this.createTexturesBindGroups();
     }
 
     get resultStorageTexture() {
@@ -70,17 +109,17 @@ export class Paint {
         ];
     }
 
-    createBindGroups() {
+    createTexturesBindGroups() {
         this.swapBindGroups = [
             this.renderer.device.createBindGroup({
-                layout: this.bindGroupLayout,
+                layout: this.texturesBindGroupLayout,
                 entries: [
                     { binding: 0, resource: this.swapTextures[0].createView() },
                     { binding: 1, resource: this.swapTextures[1].createView() },
                 ]
             }),
             this.renderer.device.createBindGroup({
-                layout: this.bindGroupLayout,
+                layout: this.texturesBindGroupLayout,
                 entries: [
                     { binding: 0, resource: this.swapTextures[1].createView() },
                     { binding: 1, resource: this.swapTextures[0].createView() },
@@ -89,9 +128,24 @@ export class Paint {
         ];
     }
 
-    compute(computePassEncoder) {
+    compute(computePassEncoder, timing, pointerInfo) {
+        // update uniform buffers
+        this.renderInfoUniform.view.set({
+           viewportSize: this.renderer.getSize(),
+           deltaTimeMS: timing.deltaTimeMS,
+           timeMS: timing.timeMS
+        });
+        this.pointerInfoUniform.view.set({
+            position: pointerInfo.position,
+            previousPosition: pointerInfo.previousPosition,
+            velocity: pointerInfo.velocity
+        });
+        this.renderer.device.queue.writeBuffer(this.renderInfoUniform.buffer, 0, this.renderInfoUniform.view.arrayBuffer);
+        this.renderer.device.queue.writeBuffer(this.pointerInfoUniform.buffer, 0, this.pointerInfoUniform.view.arrayBuffer);
+
         computePassEncoder.setPipeline(this.computePipeline);
-        computePassEncoder.setBindGroup(0, this.swapBindGroups[this.currentSwapIndex]);
+        computePassEncoder.setBindGroup(0, this.uniformsBindGroup);
+        computePassEncoder.setBindGroup(1, this.swapBindGroups[this.currentSwapIndex]);
         computePassEncoder.dispatchWorkgroups(this.dispatches[0], this.dispatches[1]);
 
         this.currentSwapIndex = (this.currentSwapIndex + 1) % 2;
