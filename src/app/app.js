@@ -1,8 +1,9 @@
 import {WebGPURenderer} from './renderer/webgpu-renderer.js';
 import {CompositePass} from './post-processing/composite-pass.js';
 import {ReactionDiffusion} from './compute/reaction-diffusion.js';
+import {Paint} from './compute/paint.js';
 
-let renderer, reactionDiffusion, compositePass;
+let renderer, paint, reactionDiffusion, compositePass;
 
 const REACTION_DIFFUSION_RESOLUTION_FACTOR = 0.25;
 
@@ -16,9 +17,11 @@ async function init() {
   renderer = new WebGPURenderer(canvas);
   await renderer.init(adapter);
 
+  paint = new Paint(renderer);
+
   reactionDiffusion = new ReactionDiffusion(renderer);
 
-  compositePass = new CompositePass(renderer, reactionDiffusion);
+  compositePass = new CompositePass(renderer, paint, reactionDiffusion);
   await compositePass.init();
 
   initResizeObserver(canvas);
@@ -57,6 +60,8 @@ function resize(width, height) {
   renderer.setSize(width, height);
   const viewportSize = renderer.getSize();
 
+  paint.init(viewportSize[0], viewportSize[1]);
+
   reactionDiffusion.init(
       Math.round(viewportSize[0] * REACTION_DIFFUSION_RESOLUTION_FACTOR),
       Math.round(viewportSize[1] * REACTION_DIFFUSION_RESOLUTION_FACTOR)
@@ -67,6 +72,7 @@ function resize(width, height) {
 
 function animate(commandEncoder) {
   const computePassEncoder = commandEncoder.beginComputePass();
+  paint.compute(computePassEncoder);
   reactionDiffusion.compute(computePassEncoder);
   computePassEncoder.end();
 }

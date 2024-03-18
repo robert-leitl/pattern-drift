@@ -52,15 +52,15 @@ export class ReactionDiffusion {
     }
 
     get resultStorageTexture() {
-        return this.blurTextures[0];
+        return this.swapTextures[0];
     }
 
     createTextures(width, height) {
-        if (this.blurTextures) {
-            this.blurTextures.forEach(texture => texture.destroy());
+        if (this.swapTextures) {
+            this.swapTextures.forEach(texture => texture.destroy());
         }
 
-        this.blurTextures = new Array(2).fill(null).map((v, ndx) => {
+        this.swapTextures = new Array(2).fill(null).map((v, ndx) => {
             const texture = this.renderer.device.createTexture({
                 size: { width, height },
                 format: 'rgba16float',
@@ -110,16 +110,16 @@ export class ReactionDiffusion {
                 layout: this.bindGroupLayout,
                 entries: [
                     { binding: 0, resource: this.emptyTexture.createView() },
-                    { binding: 1, resource: this.blurTextures[0].createView() },
-                    { binding: 2, resource: this.blurTextures[1].createView() },
+                    { binding: 1, resource: this.swapTextures[0].createView() },
+                    { binding: 2, resource: this.swapTextures[1].createView() },
                 ]
             }),
             this.renderer.device.createBindGroup({
                 layout: this.bindGroupLayout,
                 entries: [
                     { binding: 0, resource: this.emptyTexture.createView() },
-                    { binding: 1, resource: this.blurTextures[1].createView() },
-                    { binding: 2, resource: this.blurTextures[0].createView() },
+                    { binding: 1, resource: this.swapTextures[1].createView() },
+                    { binding: 2, resource: this.swapTextures[0].createView() },
                 ]
             })
         ];

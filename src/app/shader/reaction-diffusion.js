@@ -29,9 +29,9 @@ const tileSize = vec2u(${tileSize[0]},${tileSize[1]});
 @group(0) @binding(2) var outputTex: texture_storage_2d<rgba16float, write>;
 
 // the cache for the texture lookups (tileSize * workgroupSize)
-var<workgroup> cache: array<array<vec3f, 24>, 24>;
+var<workgroup> cache: array<array<vec3f, ${cacheSize[0]}>, ${cacheSize[1]}>;
 
-@compute @workgroup_size(8, 8, 1)
+@compute @workgroup_size(${workgroupSize[0]}, ${workgroupSize[1]}, 1)
 fn compute_main(
   @builtin(workgroup_id) workGroupID : vec3<u32>,
   @builtin(local_invocation_id) localInvocationID : vec3<u32>,
