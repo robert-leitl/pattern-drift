@@ -58,31 +58,36 @@ fn compute_main(
 
   // the global pixel offset of the workgroup
   let dispatchOffset: vec2u = workGroupID.xy * dispatchSize;
+  
+  let dims: vec2u = vec2<u32>(textureDimensions(inputTex, 0));
 
   // run through the whole tile
   for (var c=0u; c<tileSize.x; c++) {
     for (var r=0u; r<tileSize.y; r++) {
       let local: vec2u = vec2u(c, r) + tileOffset;
       let sample: vec2u = dispatchOffset + local;
-      let uv: vec2f = vec2f(sample) / renderInfo.viewportSize;
+      let uv: vec2f = vec2f(sample) / vec2f(dims);
       let inputValue = textureLoad(inputTex, sample, 0);
       
       let offset = pointerInfo.velocity * renderInfo.deltaTimeMS;
-      let strength = length(offset) * 2.;
+      let strength = dot(offset, offset);
+      let radius = strength * 2.9;
       let d = max(0., sdSegment(uv, pointerInfo.position, pointerInfo.previousPosition));
-      let segment = 1. - smoothstep(0., 0.5 * strength, d);
+      var segment = 1. - smoothstep(radius, radius + 0.06, d);
+      segment *= strength * 100.;
       
-      var value = inputValue.r + segment;
+      var value = inputValue.g + segment;      
+      let alpha = clamp(value, 0., 1.);
+      var result: vec4f = vec4(vec4(0., value, 0., alpha));
       
       // dissipate the paint over time
-      value *= 0.95;
-      
-      let alpha = clamp(1. - value, 0., 1.);
+      result *= 0.95;
+
 
       //textureStore(outputTex, sample, vec4(f32(localInvocationID.x) / 10., f32(localInvocationID.y) / 10., 0., 1.0));
       //textureStore(outputTex, sample, vec4(uv, 0., 1.0));
       
-      textureStore(outputTex, sample, vec4(value, 0., 0., alpha));
+      textureStore(outputTex, sample, result);
     }
   }
 }

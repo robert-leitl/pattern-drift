@@ -65,17 +65,16 @@ fn compute_main(
       var sample: vec2u = dispatchOffset + local - kernelOffset;
 
       // clamp the sample to the edges of the input texture
-      sample = clamp(sample, vec2u(0, 0), dims);
+      sample = clamp(sample, vec2u(1, 1), dims);
 
       let seed: vec4f = textureLoad(seedTex, sample, 0);
       let input: vec4f = textureLoad(inputTex, sample, 0);
       var value: vec3f = input.rgb;
-      if (seed.g > 0.1) {
-          value.r = max(0., value.r - seed.g);
-          value.g = min(1., value.g + seed.g);
-          value.r = min(1., value.r + seed.r);
-          value.g = max(0., value.g - seed.r);
-      }
+      let diff = clamp(seed.g, 0., 1.);
+      value.g = mix(input.g, (input.g + diff) / 2, seed.a);
+      value.r = mix(input.r, (input.r + (1. - diff)) / 2., seed.a);
+      value.g = clamp(value.g, 0., 1.);
+      value.r = clamp(value.r, 0., 1.);
       cache[local.y][local.x] = value;
     }
   }

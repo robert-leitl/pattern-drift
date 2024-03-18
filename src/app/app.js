@@ -130,7 +130,10 @@ function resize(width, height) {
   renderer.setSize(width, height);
   const viewportSize = renderer.getSize();
 
-  paint.init(viewportSize[0], viewportSize[1]);
+  paint.init(
+      Math.round(viewportSize[0] * REACTION_DIFFUSION_RESOLUTION_FACTOR),
+      Math.round(viewportSize[1] * REACTION_DIFFUSION_RESOLUTION_FACTOR)
+  );
 
   reactionDiffusion.init(
       Math.round(viewportSize[0] * REACTION_DIFFUSION_RESOLUTION_FACTOR),
@@ -161,7 +164,7 @@ function render(commandEncoder) {
 }
 
 function updateTiming(t) {
-  timing.deltaTimeMS = Math.min(timing.TARGET_FRAME_DURATION_MS * 2, t - timing.timeMS);
+  timing.deltaTimeMS = Math.max(1, Math.min(timing.TARGET_FRAME_DURATION_MS * 2, t - timing.timeMS));
   timing.timeMS = t;
   timing.deltaFrames = timing.deltaTimeMS / timing.TARGET_FRAME_DURATION_MS;
   timing.frames += timing.deltaFrames;
