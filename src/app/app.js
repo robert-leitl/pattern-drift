@@ -31,12 +31,9 @@ const pointerInfo = {
   // normalized pointer position (0..1, flip-y)
   position: [0, 0],
 
-  // velocity of the normalized pointer position
-  velocity: [0, 0],
-
   // normalized pointer position from the previous frame
   previousPosition: [0, 0],
-}
+};
 
 async function init() {
   const adapter = await navigator.gpu?.requestAdapter();
@@ -81,7 +78,6 @@ function onPointerDown(e) {
 
   pointerInfo.position = getNormalizedPointerPosition(e);
   pointerInfo.previousPosition = [...pointerInfo.position];
-  pointerInfo.velocity = [0, 0];
 }
 
 function onPointerMove(e) {
@@ -92,9 +88,6 @@ function onPointerMove(e) {
 
 function onPointerUp(e) {
   pointerInfo.isDown = false;
-
-  pointerInfo.velocity = [0, 0];
-  pointerInfo.previousPosition = [...pointerInfo.position];
 }
 
 function initResizeObserver(canvas) {
@@ -130,10 +123,7 @@ function resize(width, height) {
   renderer.setSize(width, height);
   const viewportSize = renderer.getSize();
 
-  paint.init(
-      Math.round(viewportSize[0] * REACTION_DIFFUSION_RESOLUTION_FACTOR),
-      Math.round(viewportSize[1] * REACTION_DIFFUSION_RESOLUTION_FACTOR)
-  );
+  paint.init(viewportSize[0], viewportSize[1]);
 
   reactionDiffusion.init(
       Math.round(viewportSize[0] * REACTION_DIFFUSION_RESOLUTION_FACTOR),
@@ -144,11 +134,6 @@ function resize(width, height) {
 }
 
 function animate(commandEncoder) {
-  pointerInfo.velocity = [
-    (pointerInfo.position[0] - pointerInfo.previousPosition[0]) / timing.deltaTimeMS,
-    (pointerInfo.position[1] - pointerInfo.previousPosition[1]) / timing.deltaTimeMS
-  ];
-
   const computePassEncoder = commandEncoder.beginComputePass();
   paint.compute(computePassEncoder, timing, pointerInfo);
   reactionDiffusion.compute(computePassEncoder);

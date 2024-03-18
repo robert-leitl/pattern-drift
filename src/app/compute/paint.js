@@ -3,6 +3,20 @@ import {PaintDispatchSize, PaintShader} from '../shader/paint.js';
 
 export class Paint {
 
+    pointerInfo = {
+        // normalized pointer position (0..1, flip-y)
+        position: [0, 0],
+
+        // velocity of the normalized pointer position
+        velocity: [0, 0],
+
+        // normalized pointer position from the previous frame
+        previousPosition: [0, 0],
+
+        // previous velocity of the normalized pointer position
+        previousVelocity: [0, 0],
+    };
+
     constructor(renderer) {
         this.renderer = renderer;
 
@@ -129,17 +143,25 @@ export class Paint {
     }
 
     compute(computePassEncoder, timing, pointerInfo) {
+        // update the pointer infos
+        this.pointerInfo.position = pointerInfo.position;
+        this.pointerInfo.previousPosition = pointerInfo.previousPosition;
+        const targetVelocity = [
+            (pointerInfo.position[0] - pointerInfo.previousPosition[0]) / timing.deltaTimeMS,
+            (pointerInfo.position[1] - pointerInfo.previousPosition[1]) / timing.deltaTimeMS
+        ];
+        this.pointerInfo.velocity = [
+            this.pointerInfo.velocity[0] + (targetVelocity[0] - this.pointerInfo.velocity[0]) / 12,
+            this.pointerInfo.velocity[1] + (targetVelocity[1] - this.pointerInfo.velocity[1]) / 12
+        ];
+
         // update uniform buffers
         this.renderInfoUniform.view.set({
            viewportSize: this.renderer.getSize(),
            deltaTimeMS: timing.deltaTimeMS,
            timeMS: timing.timeMS
         });
-        this.pointerInfoUniform.view.set({
-            position: pointerInfo.position,
-            previousPosition: pointerInfo.previousPosition,
-            velocity: pointerInfo.velocity
-        });
+        this.pointerInfoUniform.view.set(this.pointerInfo);
         this.renderer.device.queue.writeBuffer(this.renderInfoUniform.buffer, 0, this.renderInfoUniform.view.arrayBuffer);
         this.renderer.device.queue.writeBuffer(this.pointerInfoUniform.buffer, 0, this.pointerInfoUniform.view.arrayBuffer);
 
@@ -149,6 +171,7 @@ export class Paint {
         computePassEncoder.dispatchWorkgroups(this.dispatches[0], this.dispatches[1]);
 
         this.currentSwapIndex = (this.currentSwapIndex + 1) % 2;
+        this.pointerInfo.previousVelocity = [...this.pointerInfo.velocity];
     }
 
 }

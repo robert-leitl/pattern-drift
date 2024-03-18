@@ -53,7 +53,9 @@ fn compute_main(
   // the global pixel offset of the workgroup
   let dispatchOffset: vec2u = workGroupID.xy * dispatchSize;
 
+  // get texture dimensions
   let dims: vec2u = vec2<u32>(textureDimensions(inputTex, 0));
+  let seedDim: vec2u = vec2<u32>(textureDimensions(seedTex, 0));
 
   // add this threads tiles pixels to the cache
   for (var c=0u; c<tileSize.x; c++) {
@@ -66,15 +68,21 @@ fn compute_main(
 
       // clamp the sample to the edges of the input texture
       sample = clamp(sample, vec2u(1, 1), dims);
+      
+      // get the sample within the seed texture dimension
+      let seedSample: vec2u = vec2u((vec2f(sample) / vec2f(dims)) * vec2f(seedDim));
 
-      let seed: vec4f = textureLoad(seedTex, sample, 0);
+      let seed: vec4f = textureLoad(seedTex, seedSample, 0);
       let input: vec4f = textureLoad(inputTex, sample, 0);
       var value: vec3f = input.rgb;
-      let diff = clamp(seed.g, 0., 1.);
-      value.g = mix(input.g, (input.g + diff) / 2, seed.a);
-      value.r = mix(input.r, (input.r + (1. - diff)) / 2., seed.a);
+      
+      // fill in chemical b from the seed texture
+      let paint = clamp(seed.b, 0., 1.);
+      value.g = mix(input.g, (input.g + paint) / 2, seed.a);
+      value.r = mix(input.r, (input.r + (1. - paint)) / 2., seed.a);
       value.g = clamp(value.g, 0., 1.);
       value.r = clamp(value.r, 0., 1.);
+      
       cache[local.y][local.x] = value;
     }
   }
