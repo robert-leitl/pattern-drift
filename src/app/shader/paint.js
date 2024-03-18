@@ -84,7 +84,7 @@ fn compute_main(
       let dist = max(0., sdf.x);
       
       // calculate the radius for the new and previous point
-      let radiusScale = 1.5;
+      let radiusScale = 1.;
       let offset = pointerInfo.velocity * renderInfo.deltaTimeMS;
       let strength = length(offset);
       let newRadius = strength * radiusScale;
@@ -96,8 +96,8 @@ fn compute_main(
       radius = clamp(radius, 0.0, .1);
       
       // get a smooth paint from the distance to the segment
-      let smoothness = .01;
-      var paint = 1. - smoothstep(radius, radius + smoothness * .5, dist + smoothness * .4);
+      let smoothness = .05;
+      var paint = 1. - smoothstep(radius, radius + smoothness, dist + smoothness * .4);
       
       // the strength according to the velocity
       paint = min(1., paint * strength * 200.);
@@ -109,7 +109,7 @@ fn compute_main(
       vel = vec2(0.);
       vel = (inputValue.xy + vel) / 2.;
       var flowVel = st * 2. - 1.;
-      flowVel = normalize(flowVel) * max(0., (2. - length(flowVel)));
+      flowVel = normalize(flowVel) * max(0., (length(flowVel)));
       
       
       let velOffset: vec2u = vec2u((uv - (vel + flowVel) * .01) * vec2f(dims));

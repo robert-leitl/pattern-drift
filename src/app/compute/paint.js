@@ -151,8 +151,8 @@ export class Paint {
             (pointerInfo.position[1] - pointerInfo.previousPosition[1]) / timing.deltaTimeMS
         ];
         this.pointerInfo.velocity = [
-            this.pointerInfo.velocity[0] + (targetVelocity[0] - this.pointerInfo.velocity[0]) / 12,
-            this.pointerInfo.velocity[1] + (targetVelocity[1] - this.pointerInfo.velocity[1]) / 12
+            this.pointerInfo.velocity[0] + (targetVelocity[0] - this.pointerInfo.velocity[0]) / 20,
+            this.pointerInfo.velocity[1] + (targetVelocity[1] - this.pointerInfo.velocity[1]) / 20
         ];
 
         // update uniform buffers
