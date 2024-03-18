@@ -95,19 +95,35 @@ fn compute_main(
       var radius = newRadius * (1. - sdf.y) + prevRadius * sdf.y;
       radius = clamp(radius, 0.0, .1);
       
+      // get a smooth paint from the distance to the segment
       let smoothness = .01;
       var paint = 1. - smoothstep(radius, radius + smoothness * .5, dist + smoothness * .4);
       
       // the strength according to the velocity
-      paint *= strength * 200.;
+      paint = min(1., paint * strength * 200.);
+      
+      
+      
+      
+      var vel: vec2f = pointerInfo.velocity * 10. * paint;
+      vel = vec2(0.);
+      vel = (inputValue.xy + vel) / 2.;
+      var flowVel = st * 2. - 1.;
+      flowVel = normalize(flowVel) * max(0., (2. - length(flowVel)));
+      
+      
+      let velOffset: vec2u = vec2u((uv - (vel + flowVel) * .01) * vec2f(dims));
+      let offsetInputValue = textureLoad(inputTex, velOffset, 0);
+      //paint += offsetInputValue.b * .25 - .1;
+      vel += offsetInputValue.xy * 0.1;
       
       // combine with the previous paint
       var value = clamp(inputValue.b + paint, 0., 1.);
       
-      var result: vec4f = vec4(vec4(0., 0., value, value));
+      var result: vec4f = vec4(vec4(vel, value, value));
       
       // dissipate the paint over time
-      result *= 0.94;
+      result *= 0.95;
 
 
       //textureStore(outputTex, sample, vec4(f32(localInvocationID.x) / 10., f32(localInvocationID.y) / 10., 0., 1.0));
