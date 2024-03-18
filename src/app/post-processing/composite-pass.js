@@ -22,7 +22,7 @@ export class CompositePass extends PostProcessingPass {
 
         this.sampler = renderer.device.createSampler({
             minFilter: 'linear',
-            magFilter: 'nearest'
+            magFilter: 'linear'
         });
 
         this.renderPassDescriptorTemplate = { label: 'composite pass' };

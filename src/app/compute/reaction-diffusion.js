@@ -6,8 +6,9 @@ export class ReactionDiffusion {
 
     ITERATIONS = 20;
 
-    constructor(renderer) {
+    constructor(renderer, paint) {
         this.renderer = renderer;
+        this.paint = paint;
 
         // create pipeline and bind group layouts
         const module = this.renderer.device.createShaderModule({ code: ReactionDiffusionShader });
@@ -74,7 +75,7 @@ export class ReactionDiffusion {
             const w = width;
             const h = height;
             let data;
-            if (ndx === 0) {
+            //if (ndx === 0) {
                 const rgba = new Array(w * h * 4).fill(0);
                 const s = 20;
                 const bx = [w / 2 - s, w / 2 + s];
@@ -82,16 +83,16 @@ export class ReactionDiffusion {
                 for(let x=0; x<w; x++) {
                     for(let y=0; y<h; y++) {
                         const v = x > bx[0] && x < bx[1] && y > by[0] && y < by[1];
-                        rgba[(x + y * w) * 4 + 0] = v ? 0 : 1;
-                        rgba[(x + y * w) * 4 + 1] = v ? 1 : 0;
-                        rgba[(x + y * w) * 4 + 2] = 1;
+                        rgba[(x + y * w) * 4 + 0] = 1;
+                        rgba[(x + y * w) * 4 + 1] = 0;
+                        rgba[(x + y * w) * 4 + 2] = 0;
                         rgba[(x + y * w) * 4 + 3] = 1;
                     }
                 }
                 data = new Float16Array(rgba);
-            } else {
-                data = new Float16Array(new Array(w * h * 4).fill(0));
-            }
+            //} else {
+            //   data = new Float16Array(new Array(w * h * 4).fill(0));
+            //}
 
             this.renderer.device.queue.writeTexture({ texture }, data.buffer, { bytesPerRow: width * 8 }, { width, height });
 
@@ -109,7 +110,7 @@ export class ReactionDiffusion {
             this.renderer.device.createBindGroup({
                 layout: this.bindGroupLayout,
                 entries: [
-                    { binding: 0, resource: this.emptyTexture.createView() },
+                    { binding: 0, resource: this.paint.resultStorageTexture.createView() },
                     { binding: 1, resource: this.swapTextures[0].createView() },
                     { binding: 2, resource: this.swapTextures[1].createView() },
                 ]
@@ -117,7 +118,7 @@ export class ReactionDiffusion {
             this.renderer.device.createBindGroup({
                 layout: this.bindGroupLayout,
                 entries: [
-                    { binding: 0, resource: this.emptyTexture.createView() },
+                    { binding: 0, resource: this.paint.resultStorageTexture.createView() },
                     { binding: 1, resource: this.swapTextures[1].createView() },
                     { binding: 2, resource: this.swapTextures[0].createView() },
                 ]

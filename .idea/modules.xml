@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/pattern-drift.iml" filepath="$PROJECT_DIR$/.idea/pattern-drift.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../toy-bricks/.idea/toy-bricks.iml" filepath="$PROJECT_DIR$/../toy-bricks/.idea/toy-bricks.iml" />
       <module fileurl="file://$PROJECT_DIR$/../__reference-projects/webgpu-compute-metaballs-master/.idea/webgpu-compute-metaballs-master.iml" filepath="$PROJECT_DIR$/../__reference-projects/webgpu-compute-metaballs-master/.idea/webgpu-compute-metaballs-master.iml" />
     </modules>
   </component>

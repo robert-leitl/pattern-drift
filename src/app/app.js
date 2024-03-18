@@ -50,7 +50,7 @@ async function init() {
 
   paint = new Paint(renderer);
 
-  reactionDiffusion = new ReactionDiffusion(renderer);
+  reactionDiffusion = new ReactionDiffusion(renderer, paint);
 
   compositePass = new CompositePass(renderer, paint, reactionDiffusion);
   await compositePass.init();
@@ -58,7 +58,7 @@ async function init() {
   initPointerInteraction(canvas);
   initResizeObserver(canvas);
 
-  run();
+  run(0);
 }
 
 function initPointerInteraction(canvas) {
@@ -87,14 +87,7 @@ function onPointerDown(e) {
 function onPointerMove(e) {
   if (!pointerInfo.isDown) return;
 
-  const newPosition = getNormalizedPointerPosition(e);
-
-  pointerInfo.velocity = [
-    (newPosition[0] - pointerInfo.previousPosition[0]) / timing.deltaTimeMS,
-    (newPosition[1] - pointerInfo.previousPosition[1]) / timing.deltaTimeMS
-  ];
-  pointerInfo.previousPosition = [...pointerInfo.position];
-  pointerInfo.position = newPosition;
+  pointerInfo.position = getNormalizedPointerPosition(e);
 }
 
 function onPointerUp(e) {
@@ -148,10 +141,17 @@ function resize(width, height) {
 }
 
 function animate(commandEncoder) {
+  pointerInfo.velocity = [
+    (pointerInfo.position[0] - pointerInfo.previousPosition[0]) / timing.deltaTimeMS,
+    (pointerInfo.position[1] - pointerInfo.previousPosition[1]) / timing.deltaTimeMS
+  ];
+
   const computePassEncoder = commandEncoder.beginComputePass();
   paint.compute(computePassEncoder, timing, pointerInfo);
   reactionDiffusion.compute(computePassEncoder);
   computePassEncoder.end();
+
+  pointerInfo.previousPosition = [...pointerInfo.position];
 }
 
 function render(commandEncoder) {

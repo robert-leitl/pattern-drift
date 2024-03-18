@@ -69,7 +69,14 @@ fn compute_main(
 
       let seed: vec4f = textureLoad(seedTex, sample, 0);
       let input: vec4f = textureLoad(inputTex, sample, 0);
-      cache[local.y][local.x] = input.rgb;
+      var value: vec3f = input.rgb;
+      if (seed.g > 0.1) {
+          value.r = max(0., value.r - seed.g);
+          value.g = min(1., value.g + seed.g);
+          value.r = min(1., value.r + seed.r);
+          value.g = max(0., value.g - seed.r);
+      }
+      cache[local.y][local.x] = value;
     }
   }
 

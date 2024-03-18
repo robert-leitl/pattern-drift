@@ -9,6 +9,5 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="webgpu-compute-metaballs-master" />
-    <orderEntry type="module" module-name="toy-bricks" />
   </component>
 </module>
