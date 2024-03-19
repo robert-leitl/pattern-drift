@@ -7,7 +7,7 @@ export const CompositeShader = `
 
 // Credit: https://www.shadertoy.com/view/ldBfRV
 fn distort(r: vec2<f32>, alpha: f32) -> vec2<f32> {
-    return r + r * -alpha * (1. - dot(r, r));
+    return r + r * -alpha * (1. - dot(r, r) * 1.25);
 }
 
 @fragment
