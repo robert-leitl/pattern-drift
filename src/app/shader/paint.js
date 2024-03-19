@@ -114,8 +114,8 @@ fn compute_main(
       let pointerBase = mat2x2f(normPointerVel, vec2f(normPointerVel.y, -normPointerVel.x));
       let noiseDir = pointerBase * (st - pointerInfo.position);
       var noiseVel: vec2f = vec2f(
-        noise_vec2f(noiseDir * vec2f(15., 30.)) * 2. - 1.,
-        noise_vec2f(noiseDir * vec2f(15., 30.) + renderInfo.timeMS * 0.001) * 2. - 1.
+        noise_vec2f(noiseDir * vec2f(35., 15.) + renderInfo.timeMS * 0.01) * 4. - 2.,
+        noise_vec2f(noiseDir * vec2f(10., 30.) + renderInfo.timeMS * 0.001) * 2. - 1.
       );
       
       // get a smooth paint from the distance to the segment
@@ -128,7 +128,7 @@ fn compute_main(
       // the velocity has more influence than the actual paint
       let velocityMaskRadius = radius * 4.;
       let velocityMaskSmoothness = .05;
-      let velocityMask = 1. - smoothstep(velocityMaskRadius, velocityMaskRadius + velocityMaskSmoothness, dist + velocityMaskSmoothness * .2);
+      let velocityMask = 1. - smoothstep(velocityMaskRadius, velocityMaskRadius + velocityMaskSmoothness, dist + velocityMaskSmoothness * .2 + noiseVel.x * .01);
       // amplify the pointer velocity
       var vel: vec2f = pointerInfo.velocity * 1000.;
       // mask the velocity
@@ -138,7 +138,7 @@ fn compute_main(
       
       // calculate the general flow field velocity for this sample (center force)
       var flowVel = (st * 2. - 1.);
-      flowVel = normalize(flowVel) * min(1.5, max(0., (length(flowVel))));
+      flowVel = normalize(flowVel) * min(0.25, max(0., (length(flowVel))));
       // add a little bit of force from the current pointer position
       var pointerOffsetVel = pointerInfo.position - uv;
       pointerOffsetVel = normalize(pointerOffsetVel) * (1. - smoothstep(0., 1., length(pointerOffsetVel)));
@@ -146,7 +146,7 @@ fn compute_main(
       
       // find the input value which was moved to this samples location
       let velOffsetStrength = .015;
-      let velOffset: vec2u = vec2u((uv - (vel * 2. + flowVel + noiseVel * .2) * velOffsetStrength) * vec2f(dims));
+      let velOffset: vec2u = vec2u((uv - (vel * 2. + flowVel + noiseVel * .1) * velOffsetStrength) * vec2f(dims));
       let offsetInputValue = textureLoad(inputTex, velOffset, 0);
       
       // combine with the previous paint

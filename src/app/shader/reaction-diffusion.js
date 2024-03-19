@@ -32,6 +32,10 @@ const tileSize = vec2u(${tileSize[0]},${tileSize[1]});
 // the cache for the texture lookups (tileSize * workgroupSize)
 var<workgroup> cache: array<array<vec3f, ${cacheSize[0]}>, ${cacheSize[1]}>;
 
+fn map(value: f32, inMin: f32, inMax: f32, outMin: f32, outMax: f32) -> f32 {
+  return outMin + (outMax - outMin) * (value - inMin) / (inMax - inMin);
+}
+
 @compute @workgroup_size(${workgroupSize[0]}, ${workgroupSize[1]}, 1)
 fn compute_main(
   @builtin(workgroup_id) workGroupID : vec3<u32>,
@@ -110,6 +114,8 @@ fn compute_main(
       // only apply the kernel to pixels for which we have all
       // necessary pixels in the cache
       if (all(sample >= bounds.xy) && all(sample < bounds.zw)) {
+      
+        let uv: vec2f = vec2f(sample) / vec2f(dims);
 
         // convolution with laplacian kernel
         var lap = vec2f(0);
@@ -121,10 +127,11 @@ fn compute_main(
           }
         }
 
-        let dA = 1.;
-        let dB = .4;
-        let feed = .062;
-        let kill = .062;
+        let rdScale = 0.9;
+        let dA = rdScale;
+        let dB = .3 * rdScale;
+        let feed = map(uv.x, 0., 1., 0.01, .075);
+        let kill = map(uv.y, 0., 1., 0.055, .07);
 
         let rd0 = cache[local.y][local.x].xy;
         let A = rd0.x;
@@ -139,7 +146,7 @@ fn compute_main(
 
         // debug code
         //textureStore(outputTex, sample, vec4(cache[local.y][local.x], 1.0));
-        //textureStore(outputTex, sample, vec4(f32(localInvocationID.x) / 10., f32(localInvocationID.y) / 10., 0., 1.0));
+        //textureStore(outputTex, sample, vec4(uv, 0., 1.0));
       }
     }
   }
