@@ -88,7 +88,7 @@ fn compute_main(
       let seed: vec4f = textureLoad(seedTex, seedSample, 0);
       
       // offset the input sampling by the paint velocity
-      sampleUv -= seed.xy * .2;
+      sampleUv -= normalize(seed.xy + .001) * max(0., min(.08, length(seed.xy)));
       
       // perform manual bilinear sampling of the input texture
       let input: vec4f = texture2D_bilinear(inputTex, sampleUv, dims);
@@ -149,9 +149,11 @@ fn compute_main(
         // update params from seed values
         let rdScale = .9;
         let dA = rdScale;
-        let dB = .3 * rdScale - min(0.15, seedVelLen * .5);
-        let feed = map(max(0., 1. - pow(seedVelLen - 1., 4.) - .1), 0., 1., 0.005, .10);
-        let kill = map(max(0., pow(seedVelLen, 4.) + .5), 0., 1., 0.055, .07);
+        let dB = .3 * rdScale - min(0.1, max(0., seedVelLen * .5));
+        let feedInt = min(1., max(0., 1. - pow(seedVelLen - 1., 4.) - .1));
+        let killInt = min(1., max(0., pow(seedVelLen, 4.) + .4));
+        let feed = map(feedInt, 0., 1., 0.005, .095);
+        let kill = map(killInt, 0., 1., 0.055, .07);
         // calculate result
         let A = rd0.x;
         let B = rd0.y;

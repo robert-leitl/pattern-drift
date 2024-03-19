@@ -92,6 +92,9 @@ export class Paint {
         // bind groups are swapped each frame
         this.currentSwapIndex = 0;
 
+        // throttle the pointer velocity on smaller devices
+        this.pointerVelocityAttenuation = Math.min(1, (Math.max(width, height) / 1400));
+
         this.createTextures(width, height);
         this.createTexturesBindGroups();
     }
@@ -150,6 +153,8 @@ export class Paint {
             (pointerInfo.position[0] - pointerInfo.previousPosition[0]) / timing.deltaTimeMS,
             (pointerInfo.position[1] - pointerInfo.previousPosition[1]) / timing.deltaTimeMS
         ];
+        targetVelocity[0] *= this.pointerVelocityAttenuation;
+        targetVelocity[1] *= this.pointerVelocityAttenuation;
         // smooth out the velocity changes a bit
         const velDamping = pointerInfo.isDown ? 20 : 4;
         this.pointerInfo.velocity = [

@@ -89,9 +89,9 @@ fn compute_main(
       var uv: vec2f = vec2f(sample) / vec2f(dims);
       
       // aspect correction
-      let st = uv * aspectFactor;
-      let pointerPos = pointerInfo.position * aspectFactor;
-      let prevPointerPos = pointerInfo.previousPosition * aspectFactor;
+      let st = ((uv * 2. - 1.) * aspectFactor) * .5 + .5;
+      let pointerPos = ((pointerInfo.position * 2. - 1.) * aspectFactor) * .5 + .5;
+      let prevPointerPos = ((pointerInfo.previousPosition * 2. - 1.) * aspectFactor) * .5 + .5;
       
       // get the distance to the segment to draw
       let sdf = sdSegment(st, pointerPos, prevPointerPos);
@@ -142,7 +142,7 @@ fn compute_main(
       // add a little bit of force from the current pointer position
       var pointerOffsetVel = pointerInfo.position - uv;
       pointerOffsetVel = normalize(pointerOffsetVel) * (1. - smoothstep(0., 1., length(pointerOffsetVel)));
-      flowVel -= pointerOffsetVel * 0.1;
+      //flowVel -= pointerOffsetVel * 0.1;
       
       // find the input value which was moved to this samples location
       let velOffsetStrength = .015;
@@ -158,9 +158,10 @@ fn compute_main(
       // move velocity
       vel = (offsetInputValue.xy * 1.5 + vel) / 2.;
       // dissipate the velocity over time
-      vel *= 0.95;
+      vel *= 0.96;
       
       var result: vec4f = vec4(vec4(vel, paint, paint));
+      //var result: vec4f = vec4(vec4(step(vec2f(0.5), st), paint, paint));
 
       textureStore(outputTex, sample, result);
     }
