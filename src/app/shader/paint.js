@@ -142,7 +142,7 @@ fn compute_main(
       // add a little bit of force from the current pointer position
       var pointerOffsetVel = pointerInfo.position - uv;
       pointerOffsetVel = normalize(pointerOffsetVel) * (1. - smoothstep(0., 1., length(pointerOffsetVel)));
-      //flowVel -= pointerOffsetVel * 0.1;
+      flowVel -= pointerOffsetVel * 0.1;
       
       // find the input value which was moved to this samples location
       let velOffsetStrength = .015;
@@ -153,7 +153,7 @@ fn compute_main(
       paint += offsetInputValue.b;
       paint = clamp(paint, 0., 1.);
       // dissipate the paint over time
-      paint *= 0.9;
+      paint *= 0.925;
 
       // move velocity
       vel = (offsetInputValue.xy * 1.5 + vel) / 2.;
