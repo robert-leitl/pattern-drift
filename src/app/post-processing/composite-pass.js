@@ -68,7 +68,7 @@ export class CompositePass extends PostProcessingPass {
             layout: this.bindGroupLayouts[0],
             entries: [
                 { binding: 0, resource: this.sampler },
-                { binding: 1, resource: this.reactionDiffusion.resultStorageTexture.createView() },
+                { binding: 1, resource: this.paint.resultStorageTexture.createView() },
             ]
         });
     }

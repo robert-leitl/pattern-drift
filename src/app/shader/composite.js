@@ -8,9 +8,10 @@ fn frag_main(@location(0) uv : vec2f) -> @location(0) vec4f {
     let colorTexSize : vec2f = vec2f(textureDimensions(colorTex));
 
     var color : vec4f = textureSample(colorTex, colorTexSampler, uv);
-    color.a = 1.;
+    
+    let rgb = color.rgb;
 
-    return color;
+    return vec4(rgb, 1.);
 }
 
 `;

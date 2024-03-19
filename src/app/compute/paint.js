@@ -150,6 +150,7 @@ export class Paint {
             (pointerInfo.position[0] - pointerInfo.previousPosition[0]) / timing.deltaTimeMS,
             (pointerInfo.position[1] - pointerInfo.previousPosition[1]) / timing.deltaTimeMS
         ];
+        // smooth out the velocity changes a bit
         this.pointerInfo.velocity = [
             this.pointerInfo.velocity[0] + (targetVelocity[0] - this.pointerInfo.velocity[0]) / 20,
             this.pointerInfo.velocity[1] + (targetVelocity[1] - this.pointerInfo.velocity[1]) / 20

@@ -102,30 +102,40 @@ fn compute_main(
       // the strength according to the velocity
       paint = min(1., paint * strength * 200.);
       
-      
+      // the velocity has more influence than the actual paint
       let velocityMaskRadius = radius * 4.;
-      let velocityMask = 1. - smoothstep(velocityMaskRadius, velocityMaskRadius + smoothness, dist + smoothness * .2);
+      let velocityMaskSmoothness = .05;
+      let velocityMask = 1. - smoothstep(velocityMaskRadius, velocityMaskRadius + velocityMaskSmoothness, dist + velocityMaskSmoothness * .2);
+      // amplify the pointer velocity
       var vel: vec2f = pointerInfo.velocity * 1000. * velocityMask;
-      vel = (inputValue.xy * 1.2 + vel) / 2.;
+      // combine the new velocity with a bit of the current samples velocity
+      vel = (inputValue.xy + vel) / 2.;
       
-      var flowVel = (st * 2. - 1.) + (pointerInfo.position - uv) * .1;
-      //flowVel = normalize(flowVel) * .3;// * max(1., (length(flowVel)));
-      flowVel = normalize(flowVel) * min(.3, max(0., (length(flowVel))));
+      // calculate the general flow field velocity for this sample (center force)
+      var flowVel = (st * 2. - 1.);
+      flowVel = normalize(flowVel) * min(1.5, max(0., (length(flowVel))));
+      // add a little bit of force from the current pointer position
+      var pointerOffsetVel = pointerInfo.position - uv;
+      pointerOffsetVel = normalize(pointerOffsetVel) * (1. - smoothstep(0., 1., length(pointerOffsetVel)));
+      flowVel -= pointerOffsetVel * 0.2;
       
-      
-      let velOffset: vec2u = vec2u((uv - (vel + flowVel) * .01) * vec2f(dims));
+      // find the input value which was moved to this samples location
+      let velOffsetStrength = .015;
+      let velOffset: vec2u = vec2u((uv - (vel * 2. + flowVel) * velOffsetStrength) * vec2f(dims));
       let offsetInputValue = textureLoad(inputTex, velOffset, 0);
-      paint += offsetInputValue.b;
-      vel = (offsetInputValue.xy * 1.5 + vel) / 2.;
       
       // combine with the previous paint
-      var value = clamp(paint, 0., 1.);
-      
-      var result: vec4f = vec4(vec4(vel, value, value));
-      
+      paint += offsetInputValue.b;
+      paint = clamp(paint, 0., 1.);
       // dissipate the paint over time
-      result *= 0.95;
+      paint *= 0.9;
 
+      // move velocity
+      vel = (offsetInputValue.xy * 1.5 + vel) / 2.;
+      // dissipate the velocity over time
+      vel *= 0.96;
+      
+      var result: vec4f = vec4(vec4(vel, paint, paint));
 
       //textureStore(outputTex, sample, vec4(f32(localInvocationID.x) / 10., f32(localInvocationID.y) / 10., 0., 1.0));
       //textureStore(outputTex, sample, vec4(uv, 0., 1.0));

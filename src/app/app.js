@@ -7,6 +7,8 @@ let devicePixelRatio, renderer, paint, reactionDiffusion, compositePass;
 
 const REACTION_DIFFUSION_RESOLUTION_FACTOR = 0.25;
 
+const PAINT_RESOLUTION_FACTOR = 0.75;
+
 const timing = {
   // the target duration of one frame in milliseconds
   TARGET_FRAME_DURATION_MS: 16,
@@ -123,7 +125,10 @@ function resize(width, height) {
   renderer.setSize(width, height);
   const viewportSize = renderer.getSize();
 
-  paint.init(viewportSize[0], viewportSize[1]);
+  paint.init(
+      Math.round(viewportSize[0] * PAINT_RESOLUTION_FACTOR),
+      Math.round(viewportSize[1] * PAINT_RESOLUTION_FACTOR)
+  );
 
   reactionDiffusion.init(
       Math.round(viewportSize[0] * REACTION_DIFFUSION_RESOLUTION_FACTOR),
