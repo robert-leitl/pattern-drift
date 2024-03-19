@@ -151,9 +151,10 @@ export class Paint {
             (pointerInfo.position[1] - pointerInfo.previousPosition[1]) / timing.deltaTimeMS
         ];
         // smooth out the velocity changes a bit
+        const velDamping = pointerInfo.isDown ? 20 : 4;
         this.pointerInfo.velocity = [
-            this.pointerInfo.velocity[0] + (targetVelocity[0] - this.pointerInfo.velocity[0]) / 20,
-            this.pointerInfo.velocity[1] + (targetVelocity[1] - this.pointerInfo.velocity[1]) / 20
+            this.pointerInfo.velocity[0] + (targetVelocity[0] - this.pointerInfo.velocity[0]) / velDamping,
+            this.pointerInfo.velocity[1] + (targetVelocity[1] - this.pointerInfo.velocity[1]) / velDamping
         ];
 
         // update uniform buffers

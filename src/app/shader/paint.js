@@ -43,9 +43,23 @@ fn sdSegment( p: vec2f, a: vec2f, b: vec2f ) -> vec2f {
     return vec2f(length( pa - ba*h ), h);
 }
 
-fn blendScreen(base: f32, blend: f32, opacity: f32) -> f32 {
-    let r = 1.0-((1.0-base)*(1.0-blend));
-    return r * opacity + base * (1.0 - opacity);
+fn rand_f32(n: f32) -> f32 { return fract(sin(n) * 43758.5453123); }
+
+fn rand_vec2f(n: vec2f) -> f32 { 
+    return fract(sin(dot(n, vec2f(12.9898, 4.1414))) * 43758.5453);
+}
+
+fn noise_f32(p: f32) -> f32 {
+    let fl = floor(p);
+    let fc = fract(p);
+    return mix(rand_f32(fl), rand_f32(fl + 1.0), fc);
+}
+
+fn noise_vec2f(n: vec2f) -> f32 {
+    let d: vec2f = vec2f(0.0, 1.0);
+    let b: vec2f = floor(n);
+    let f: vec2f = smoothstep(vec2f(0.0), vec2f(1.0), fract(n));
+    return mix(mix(rand_vec2f(b), rand_vec2f(b + d.yx), f.x), mix(rand_vec2f(b + d.xy), rand_vec2f(b + d.yy), f.x), f.y);
 }
 
 @compute @workgroup_size(${workgroupSize[0]}, ${workgroupSize[1]}, 1)
@@ -84,7 +98,7 @@ fn compute_main(
       let dist = max(0., sdf.x);
       
       // calculate the radius for the new and previous point
-      let radiusScale = 1.;
+      let radiusScale = 1.5;
       let offset = pointerInfo.velocity * renderInfo.deltaTimeMS;
       let strength = length(offset);
       let newRadius = strength * radiusScale;
@@ -95,9 +109,18 @@ fn compute_main(
       var radius = newRadius * (1. - sdf.y) + prevRadius * sdf.y;
       radius = clamp(radius, 0.0, .1);
       
+      // generate velocity noise
+      let normPointerVel = normalize(pointerInfo.velocity);
+      let pointerBase = mat2x2f(normPointerVel, vec2f(normPointerVel.y, -normPointerVel.x));
+      let noiseDir = pointerBase * (st - pointerInfo.position);
+      var noiseVel: vec2f = vec2f(
+        noise_vec2f(noiseDir * vec2f(15., 30.)) * 2. - 1.,
+        noise_vec2f(noiseDir * vec2f(15., 30.) + renderInfo.timeMS * 0.001) * 2. - 1.
+      );
+      
       // get a smooth paint from the distance to the segment
       let smoothness = .05;
-      var paint = 1. - smoothstep(radius, radius + smoothness, dist + smoothness * .4);
+      var paint = 1. - smoothstep(radius, radius + smoothness, dist + smoothness * .4 + noiseVel.y * .01);
       
       // the strength according to the velocity
       paint = min(1., paint * strength * 200.);
@@ -107,7 +130,9 @@ fn compute_main(
       let velocityMaskSmoothness = .05;
       let velocityMask = 1. - smoothstep(velocityMaskRadius, velocityMaskRadius + velocityMaskSmoothness, dist + velocityMaskSmoothness * .2);
       // amplify the pointer velocity
-      var vel: vec2f = pointerInfo.velocity * 1000. * velocityMask;
+      var vel: vec2f = pointerInfo.velocity * 1000.;
+      // mask the velocity
+      vel *= velocityMask;
       // combine the new velocity with a bit of the current samples velocity
       vel = (inputValue.xy + vel) / 2.;
       
@@ -117,11 +142,11 @@ fn compute_main(
       // add a little bit of force from the current pointer position
       var pointerOffsetVel = pointerInfo.position - uv;
       pointerOffsetVel = normalize(pointerOffsetVel) * (1. - smoothstep(0., 1., length(pointerOffsetVel)));
-      flowVel -= pointerOffsetVel * 0.2;
+      flowVel -= pointerOffsetVel * 0.1;
       
       // find the input value which was moved to this samples location
       let velOffsetStrength = .015;
-      let velOffset: vec2u = vec2u((uv - (vel * 2. + flowVel) * velOffsetStrength) * vec2f(dims));
+      let velOffset: vec2u = vec2u((uv - (vel * 2. + flowVel + noiseVel * .2) * velOffsetStrength) * vec2f(dims));
       let offsetInputValue = textureLoad(inputTex, velOffset, 0);
       
       // combine with the previous paint
@@ -137,9 +162,6 @@ fn compute_main(
       
       var result: vec4f = vec4(vec4(vel, paint, paint));
 
-      //textureStore(outputTex, sample, vec4(f32(localInvocationID.x) / 10., f32(localInvocationID.y) / 10., 0., 1.0));
-      //textureStore(outputTex, sample, vec4(uv, 0., 1.0));
-      
       textureStore(outputTex, sample, result);
     }
   }
