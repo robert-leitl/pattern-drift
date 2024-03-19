@@ -158,7 +158,7 @@ fn compute_main(
       // move velocity
       vel = (offsetInputValue.xy * 1.5 + vel) / 2.;
       // dissipate the velocity over time
-      vel *= 0.96;
+      vel *= 0.95;
       
       var result: vec4f = vec4(vec4(vel, paint, paint));
 

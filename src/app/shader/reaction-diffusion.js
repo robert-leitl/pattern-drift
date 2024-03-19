@@ -30,11 +30,23 @@ const tileSize = vec2u(${tileSize[0]},${tileSize[1]});
 @group(0) @binding(2) var outputTex: texture_storage_2d<rgba16float, write>;
 
 // the cache for the texture lookups (tileSize * workgroupSize)
-var<workgroup> cache: array<array<vec3f, ${cacheSize[0]}>, ${cacheSize[1]}>;
+var<workgroup> cache: array<array<vec4f, ${cacheSize[0]}>, ${cacheSize[1]}>;
 
 fn map(value: f32, inMin: f32, inMax: f32, outMin: f32, outMax: f32) -> f32 {
   return outMin + (outMax - outMin) * (value - inMin) / (inMax - inMin);
 }
+
+fn texture2D_bilinear(t: texture_2d<f32>, uv: vec2f, dims: vec2u) -> vec4f {
+    let sample: vec2u = vec2u(uv);
+    let tl: vec4f = textureLoad(t, clamp(sample, vec2u(1, 1), dims), 0);
+    let tr: vec4f = textureLoad(t, clamp(sample + vec2u(1, 0), vec2u(1, 1), dims), 0);
+    let bl: vec4f = textureLoad(t, clamp(sample + vec2u(0, 1), vec2u(1, 1), dims), 0);
+    let br: vec4f = textureLoad(t, clamp(sample + vec2u(1, 1), vec2u(1, 1), dims), 0);
+    let f: vec2f = fract(uv);
+    let tA: vec4f = mix(tl, tr, f.x);
+    let tB: vec4f = mix(bl, br, f.x);
+    return mix(tA, tB, f.y);
+} 
 
 @compute @workgroup_size(${workgroupSize[0]}, ${workgroupSize[1]}, 1)
 fn compute_main(
@@ -69,16 +81,18 @@ fn compute_main(
       // subtract the kernel offset to include the border pixels needed
       // for the convolution of the kernel within the dispatch (work) area
       var sample: vec2u = dispatchOffset + local - kernelOffset;
-
-      // clamp the sample to the edges of the input texture
-      sample = clamp(sample, vec2u(1, 1), dims);
+      var sampleUv: vec2f = vec2f(sample);
       
       // get the sample within the seed texture dimension
       let seedSample: vec2u = vec2u((vec2f(sample) / vec2f(dims)) * vec2f(seedDim));
-
       let seed: vec4f = textureLoad(seedTex, seedSample, 0);
-      let input: vec4f = textureLoad(inputTex, sample, 0);
-      var value: vec3f = input.rgb;
+      
+      // offset the input sampling by the paint velocity
+      sampleUv -= seed.xy * .2;
+      
+      // perform manual bilinear sampling of the input texture
+      let input: vec4f = texture2D_bilinear(inputTex, sampleUv, dims);
+      var value: vec4f = vec4f(input.rg, seed.xy);
       
       // fill in chemical b from the seed texture
       let paint = clamp(seed.b, 0., 1.);
@@ -127,13 +141,18 @@ fn compute_main(
           }
         }
 
-        let rdScale = 0.9;
+        // reaction diffusion calculation
+        let cacheValue: vec4f = cache[local.y][local.x];
+        let seedVel: vec2f = cacheValue.zw;
+        let seedVelLen: f32 = length(seedVel);
+        let rd0 = cacheValue.xy;
+        // update params from seed values
+        let rdScale = .9;
         let dA = rdScale;
-        let dB = .3 * rdScale;
-        let feed = map(uv.x, 0., 1., 0.01, .075);
-        let kill = map(uv.y, 0., 1., 0.055, .07);
-
-        let rd0 = cache[local.y][local.x].xy;
+        let dB = .3 * rdScale - min(0.15, seedVelLen * .5);
+        let feed = map(max(0., 1. - pow(seedVelLen - 1., 4.) - .1), 0., 1., 0.005, .10);
+        let kill = map(max(0., pow(seedVelLen, 4.) + .5), 0., 1., 0.055, .07);
+        // calculate result
         let A = rd0.x;
         let B = rd0.y;
         let reaction = A * B * B;
