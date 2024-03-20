@@ -27,14 +27,18 @@ html, body, canvas {
     max-width: 26em;
 }
 
+#info-message,
 .github-link {
     position: absolute;
-    right: 0;
-    bottom: 0;
     color: #aaa;
     mix-blend-mode: difference;
     text-transform: uppercase;
     text-decoration: none;
+}
+
+.github-link {
+    right: 0;
+    bottom: 0;
     padding: 0.7em 1em;
     font-size: 0.8em;
 }
@@ -42,4 +46,16 @@ html, body, canvas {
 .tp-dfwv {
   width: 360px !important;
   font-size: 0.9em;
+}
+
+#info-message {
+    display: none;
+    pointer-events: none;
+    width: 100%;
+    text-align: center;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2em;
+    transition: opacity 1000ms;
 }
