@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npm run dev",
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --emptyOutDir --base=/pattern-drift/dist/",
     "preview": "vite preview"
   },
   "devDependencies": {
