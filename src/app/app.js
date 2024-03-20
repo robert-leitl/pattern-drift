@@ -2,10 +2,11 @@ import {WebGPURenderer} from './renderer/webgpu-renderer.js';
 import {CompositePass} from './post-processing/composite-pass.js';
 import {ReactionDiffusion} from './compute/reaction-diffusion.js';
 import {Paint} from './compute/paint.js';
+import {isMobileDevice} from './utils/is-mobile.js';
 
 let devicePixelRatio, renderer, paint, reactionDiffusion, compositePass, gpuTiming;
 
-const REACTION_DIFFUSION_RESOLUTION_FACTOR = 0.25;
+const REACTION_DIFFUSION_RESOLUTION_FACTOR = isMobileDevice ? .2 : 0.25;
 
 const PAINT_RESOLUTION_FACTOR = 0.75;
 
