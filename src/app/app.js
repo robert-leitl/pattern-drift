@@ -3,11 +3,11 @@ import {CompositePass} from './post-processing/composite-pass.js';
 import {ReactionDiffusion} from './compute/reaction-diffusion.js';
 import {Paint} from './compute/paint.js';
 
-let devicePixelRatio, renderer, paint, reactionDiffusion, compositePass;
+let devicePixelRatio, renderer, paint, reactionDiffusion, compositePass, gpuTiming;
 
 const REACTION_DIFFUSION_RESOLUTION_FACTOR = 0.25;
 
-const PAINT_RESOLUTION_FACTOR = 0.5;
+const PAINT_RESOLUTION_FACTOR = 0.75;
 
 const timing = {
   // the target duration of one frame in milliseconds
@@ -55,10 +55,32 @@ async function init() {
   compositePass = new CompositePass(renderer, paint, reactionDiffusion);
   await compositePass.init();
 
+  initGPUTiming();
   initPointerInteraction(canvas);
   initResizeObserver(canvas);
 
   run(0);
+}
+
+function initGPUTiming() {
+  if (!renderer.canTimestamp) return;
+
+  const querySet = renderer.device.createQuerySet({
+    type: 'timestamp',
+    count: 2,
+  });
+  const resolveBuffer = renderer.device.createBuffer({
+    size: querySet.count * 8,
+    usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+  });
+  const resultBuffer = renderer.device.createBuffer({
+    size: resolveBuffer.size,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+  });
+
+  gpuTiming = {
+    querySet, resolveBuffer, resultBuffer, averageValue: 0, maxValue: 0
+  };
 }
 
 function initPointerInteraction(canvas) {
@@ -116,6 +138,18 @@ function run(t = 0) {
 
   renderer.device.queue.submit([commandEncoder.finish()]);
 
+  if (renderer.canTimestamp && gpuTiming.resultBuffer.mapState === 'unmapped') {
+    gpuTiming.resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
+      const times = new BigInt64Array(gpuTiming.resultBuffer.getMappedRange());
+      const gpuTime = Number(times[1] - times[0]);
+      gpuTiming.maxValue = Math.max(gpuTime, gpuTiming.maxValue);
+      gpuTiming.averageValue += gpuTime;
+      gpuTiming.averageValue /= 2;
+      //console.log(Math.round(gpuTiming.maxValue / 100000) / 10);
+      gpuTiming.resultBuffer.unmap();
+    });
+  }
+
   requestAnimationFrame(t => run(t));
 }
 
@@ -139,10 +173,25 @@ function resize(width, height) {
 }
 
 function animate(commandEncoder) {
-  const computePassEncoder = commandEncoder.beginComputePass();
+  const computePassEncoder = commandEncoder.beginComputePass({
+      ...(renderer.canTimestamp && {
+        timestampWrites: {
+          querySet: gpuTiming.querySet,
+          beginningOfPassWriteIndex: 0,
+          endOfPassWriteIndex: 1,
+        }
+      })
+  });
   paint.compute(computePassEncoder, timing, pointerInfo);
   reactionDiffusion.compute(computePassEncoder);
   computePassEncoder.end();
+
+  if (renderer.canTimestamp) {
+    commandEncoder.resolveQuerySet(gpuTiming.querySet, 0, 2, gpuTiming.resolveBuffer, 0);
+    if (gpuTiming.resultBuffer.mapState === 'unmapped') {
+      commandEncoder.copyBufferToBuffer(gpuTiming.resolveBuffer, 0, gpuTiming.resultBuffer, 0, gpuTiming.resultBuffer.size);
+    }
+  }
 
   pointerInfo.previousPosition = [...pointerInfo.position];
 }

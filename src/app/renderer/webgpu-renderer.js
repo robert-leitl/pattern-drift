@@ -6,7 +6,12 @@ export class WebGPURenderer {
     }
 
     async init(adapter) {
-        this.device = await adapter.requestDevice();
+        this.canTimestamp = adapter.features.has('timestamp-query');
+        this.device = await adapter?.requestDevice({
+            requiredFeatures: [
+                ...(this.canTimestamp ? ['timestamp-query'] : []),
+            ],
+        });
 
         this.context = this.canvas.getContext('webgpu');
         this.presentationFormat = navigator.gpu.getPreferredCanvasFormat();

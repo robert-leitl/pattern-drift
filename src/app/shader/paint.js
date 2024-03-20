@@ -2,7 +2,7 @@
 // shader constants
 const workgroupSize = [8, 8];
 // each thread handles a tile of pixels
-const tileSize = [3, 3];
+const tileSize = [2, 2];
 // the required number of workgroup dispatches is given by
 // dividing the total area by the dispatch size
 const dispatchSize = [

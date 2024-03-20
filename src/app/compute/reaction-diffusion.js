@@ -4,7 +4,7 @@ import {Float16Array} from '@petamoriken/float16';
 
 export class ReactionDiffusion {
 
-    ITERATIONS = 10;
+    ITERATIONS = 20;
 
     constructor(renderer, paint) {
         this.renderer = renderer;

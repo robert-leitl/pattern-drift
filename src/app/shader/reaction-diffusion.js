@@ -3,7 +3,7 @@
 const kernelSize = 3;
 const workgroupSize = [8, 8];
 // each thread handles a tile of pixels
-const tileSize = [3, 3];
+const tileSize = [2, 2];
 // holds all the pixels needed for one workgroup
 const cacheSize = [
     tileSize[0] * workgroupSize[0],
@@ -46,6 +46,10 @@ fn texture2D_bilinear(t: texture_2d<f32>, uv: vec2f, dims: vec2u) -> vec4f {
     let tA: vec4f = mix(tl, tr, f.x);
     let tB: vec4f = mix(bl, br, f.x);
     return mix(tA, tB, f.y);
+} 
+
+fn powFast(a: f32, b: f32) -> f32 {
+    return a / ((1. - b) * a + b);
 } 
 
 @compute @workgroup_size(${workgroupSize[0]}, ${workgroupSize[1]}, 1)
