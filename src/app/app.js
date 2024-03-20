@@ -7,7 +7,7 @@ let devicePixelRatio, renderer, paint, reactionDiffusion, compositePass;
 
 const REACTION_DIFFUSION_RESOLUTION_FACTOR = 0.25;
 
-const PAINT_RESOLUTION_FACTOR = 0.75;
+const PAINT_RESOLUTION_FACTOR = 0.5;
 
 const timing = {
   // the target duration of one frame in milliseconds
