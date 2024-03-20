@@ -16,4 +16,4 @@ async function init() {
     await App.init();
 }
 
-await init();
+init();

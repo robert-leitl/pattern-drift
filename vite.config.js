@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
   ],
   build: {
-    outDir: "./dist/",
+    outDir: "../dist/",
     emptyOutDir: true,
     minify: "terser",
     assetsDir: "assets",

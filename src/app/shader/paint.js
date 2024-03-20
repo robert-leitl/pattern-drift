@@ -75,6 +75,7 @@ fn compute_main(
   let dispatchOffset: vec2u = workGroupID.xy * dispatchSize;
   
   let dims: vec2u = vec2<u32>(textureDimensions(inputTex, 0));
+  let deviceSizeFactor = 3. - clamp((f32(max(dims.x, dims.y)) / 800.), 0., 3.);
   
   let aspectFactor: vec2f = vec2f(dims) / f32(max(dims.x, dims.y));
 
@@ -119,7 +120,7 @@ fn compute_main(
       );
       
       // get a smooth paint from the distance to the segment
-      let smoothness = .05;
+      let smoothness = .05 * deviceSizeFactor;
       var paint = 1. - smoothstep(radius, radius + smoothness, dist + smoothness * .4 + noiseVel.y * .01);
       
       // the strength according to the velocity
