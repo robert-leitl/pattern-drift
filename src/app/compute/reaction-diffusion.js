@@ -1,10 +1,11 @@
 import * as wgh from 'webgpu-utils';
 import {ReactionDiffusionShader, ReactionDiffusionShaderDispatchSize} from '../shader/reaction-diffusion.js';
 import {Float16Array} from '@petamoriken/float16';
+import {isMobileDevice} from '../utils/is-mobile.js';
 
 export class ReactionDiffusion {
 
-    ITERATIONS = 20;
+    ITERATIONS = isMobileDevice ? 15 : 20;
 
     constructor(renderer, paint) {
         this.renderer = renderer;
