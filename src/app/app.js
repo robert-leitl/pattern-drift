@@ -76,7 +76,7 @@ function initPointerInteraction(canvas) {
 }
 
 function getNormalizedPointerPosition(e) {
-  const size = renderer.getSize().map(value => value / window.devicePixelRatio);
+  const size = [window.innerWidth, window.innerHeight];
   return [
     e.clientX / size[0],
     1 - (e.clientY / size[1])

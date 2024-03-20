@@ -3,6 +3,7 @@ import {App} from './app/app.js';
 import {Pane} from 'tweakpane';
 
 const noWebGPUMessage = document.querySelector('#no-webgpu');
+const infoMessage = document.querySelector('#info-message');
 
 const queryString = window.location.search;
 const urlParams = new URLSearchParams(queryString);
@@ -20,6 +21,9 @@ async function init() {
     }
 
     await App.init();
+
+    infoMessage.style.display = 'inline';
+    document.body.addEventListener('pointerdown', () => infoMessage.style.opacity = 0, { once: true });
 
     // init tweakpane
     if (hasDebugParam || isDev) {
