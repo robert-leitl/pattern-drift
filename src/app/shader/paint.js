@@ -1,5 +1,7 @@
 
 // shader constants
+import {WGSLNoiseFunctions, WGSLSegmentSDF} from './chunks.js';
+
 const workgroupSize = [8, 8];
 // each thread handles a tile of pixels
 const tileSize = [2, 2];
@@ -36,31 +38,9 @@ const tileSize = vec2u(${tileSize[0]},${tileSize[1]});
 @group(1) @binding(0) var inputTex: texture_2d<f32>;
 @group(1) @binding(1) var outputTex: texture_storage_2d<rgba16float, write>;
 
-fn sdSegment( p: vec2f, a: vec2f, b: vec2f ) -> vec2f {
-    let pa = p-a;
-    let ba = b-a;
-    let h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
-    return vec2f(length( pa - ba*h ), h);
-}
+${WGSLSegmentSDF}
 
-fn rand_f32(n: f32) -> f32 { return fract(sin(n) * 43758.5453123); }
-
-fn rand_vec2f(n: vec2f) -> f32 { 
-    return fract(sin(dot(n, vec2f(12.9898, 4.1414))) * 43758.5453);
-}
-
-fn noise_f32(p: f32) -> f32 {
-    let fl = floor(p);
-    let fc = fract(p);
-    return mix(rand_f32(fl), rand_f32(fl + 1.0), fc);
-}
-
-fn noise_vec2f(n: vec2f) -> f32 {
-    let d: vec2f = vec2f(0.0, 1.0);
-    let b: vec2f = floor(n);
-    let f: vec2f = smoothstep(vec2f(0.0), vec2f(1.0), fract(n));
-    return mix(mix(rand_vec2f(b), rand_vec2f(b + d.yx), f.x), mix(rand_vec2f(b + d.xy), rand_vec2f(b + d.yy), f.x), f.y);
-}
+${WGSLNoiseFunctions}
 
 @compute @workgroup_size(${workgroupSize[0]}, ${workgroupSize[1]}, 1)
 fn compute_main(

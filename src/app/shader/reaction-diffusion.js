@@ -1,5 +1,7 @@
 
 // shader constants
+import {WGSLBilinearSample, WGSLMapFunction} from './chunks.js';
+
 const kernelSize = 3;
 const workgroupSize = [8, 8];
 // each thread handles a tile of pixels
@@ -32,25 +34,9 @@ const tileSize = vec2u(${tileSize[0]},${tileSize[1]});
 // the cache for the texture lookups (tileSize * workgroupSize)
 var<workgroup> cache: array<array<vec4f, ${cacheSize[0]}>, ${cacheSize[1]}>;
 
-fn map(value: f32, inMin: f32, inMax: f32, outMin: f32, outMax: f32) -> f32 {
-  return outMin + (outMax - outMin) * (value - inMin) / (inMax - inMin);
-}
+${WGSLMapFunction}
 
-fn texture2D_bilinear(t: texture_2d<f32>, uv: vec2f, dims: vec2u) -> vec4f {
-    let sample: vec2u = vec2u(uv);
-    let tl: vec4f = textureLoad(t, clamp(sample, vec2u(1, 1), dims), 0);
-    let tr: vec4f = textureLoad(t, clamp(sample + vec2u(1, 0), vec2u(1, 1), dims), 0);
-    let bl: vec4f = textureLoad(t, clamp(sample + vec2u(0, 1), vec2u(1, 1), dims), 0);
-    let br: vec4f = textureLoad(t, clamp(sample + vec2u(1, 1), vec2u(1, 1), dims), 0);
-    let f: vec2f = fract(uv);
-    let tA: vec4f = mix(tl, tr, f.x);
-    let tB: vec4f = mix(bl, br, f.x);
-    return mix(tA, tB, f.y);
-} 
-
-fn powFast(a: f32, b: f32) -> f32 {
-    return a / ((1. - b) * a + b);
-} 
+${WGSLBilinearSample}
 
 @compute @workgroup_size(${workgroupSize[0]}, ${workgroupSize[1]}, 1)
 fn compute_main(
