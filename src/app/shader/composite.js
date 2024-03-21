@@ -1,4 +1,6 @@
 // language=C
+import {WGSLDitheringFunction} from './chunks.js';
+
 export const CompositeShader = `
 
 @group(0) @binding(0) var colorTexSampler: sampler;
@@ -13,6 +15,8 @@ fn distort(r: vec2<f32>, alpha: f32) -> vec2<f32> {
 fn pal(t: f32, a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>) -> vec3<f32> {
     return a + b * cos(6.28318 * (c * t + d));
 }
+
+${WGSLDitheringFunction}
 
 @fragment
 fn frag_main(@location(0) uv : vec2f) -> @location(0) vec4f {
@@ -62,7 +66,7 @@ fn frag_main(@location(0) uv : vec2f) -> @location(0) vec4f {
     let vignette: f32 = dot(uv * 2. - 1., uv * 2. - 1.);
     base += vignette * .1;
 
-    return vec4(base * emboss, 1.);
+    return vec4(dithering(uv, base * emboss), 1.);
     //return vec4(ext, 1.);
 }
 

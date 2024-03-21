@@ -74,3 +74,19 @@ fn map(value: f32, inMin: f32, inMax: f32, outMin: f32, outMax: f32) -> f32 {
   return outMin + (outMax - outMin) * (value - inMin) / (inMax - inMin);
 }
 `;
+
+
+// Credit: https://github.com/mrdoob/three.js/blob/master/src/renderers/shaders/ShaderChunk/dithering_pars_fragment.glsl.js
+// language=C
+export const WGSLDitheringFunction = `
+fn rand_vec2f(n: vec2f) -> f32 { 
+    return fract(sin(dot(n, vec2f(12.9898, 4.1414))) * 43758.5453);
+}
+
+fn dithering(uv: vec2f, color: vec3<f32>) -> vec3<f32> {
+    let grid_position: f32 = rand_vec2f(uv);
+    var dither_shift_RGB: vec3<f32> = vec3<f32>(0.25 / 255., -0.25 / 255., 0.25 / 255.);
+    dither_shift_RGB = mix(2. * dither_shift_RGB, -2. * dither_shift_RGB, grid_position);
+    return color + dither_shift_RGB;
+} 
+`;
