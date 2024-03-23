@@ -39,8 +39,18 @@ export class WebGPURenderer {
     setSize(width, height) {
         if (!this.device) return;
 
-        this.canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
-        this.canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
+        let w = width;
+        let h = height;
+        if (w > 2000) {
+            w = 2000;
+            h = (height / width) * w;
+        }
+        if (h > 2000) {
+            h = 2000;
+            w = (width / height) * h;
+        }
+        this.canvas.width = Math.max(1, Math.min(w, this.device.limits.maxTextureDimension2D));
+        this.canvas.height = Math.max(1, Math.min(h, this.device.limits.maxTextureDimension2D));
     }
 
     getSize() {

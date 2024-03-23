@@ -111,7 +111,7 @@ fn compute_main(
       let velocityMaskSmoothness = .05;
       let velocityMask = 1. - smoothstep(velocityMaskRadius, velocityMaskRadius + velocityMaskSmoothness, dist + velocityMaskSmoothness * .2 + noiseVel.x * .01);
       // amplify the pointer velocity
-      var vel: vec2f = pointerInfo.velocity * 1000.;
+      var vel: vec2f = pointerInfo.velocity * 1000. * (renderInfo.deltaTimeMS / 16.);
       // mask the velocity
       vel *= velocityMask;
       // combine the new velocity with a bit of the current samples velocity
